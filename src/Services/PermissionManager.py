@@ -1,9 +1,13 @@
-from src.Interfaces import IPermissionManager, IDatabaseManager
+from src.Interfaces import IPermissionManager, IDatabaseManager, IAlbionApiManager
+from src.Model import Player, Guild, Alliance
 
 
 class PermissionManager(IPermissionManager):
-    def __init__(self, database_manager: IDatabaseManager) -> None:
+    def __init__(
+        self, database_manager: IDatabaseManager, albion_api_manager: IAlbionApiManager
+    ) -> None:
         self.database_manager = database_manager
+        self.albion_api_manager = albion_api_manager
 
     async def register_albion_character(
         self, discord_user_id: str, albion_character_id: str
@@ -12,3 +16,11 @@ class PermissionManager(IPermissionManager):
         await self.database_manager.update_or_insert_player(
             albion_character_id=albion_character_id, discord_user_id=discord_user_id
         )
+
+    async def is_player_in_alliance(self, player: Player, alliance: Alliance) -> bool:
+        player_alliance = self.albion_api_manager.get_player_alliance(player=player)
+        return player_alliance == alliance
+
+    async def is_player_in_guild(self, player: Player, guild: Guild) -> bool:
+        player_guild = self.albion_api_manager.get_player_guild(player=player)
+        return player_guild == guild

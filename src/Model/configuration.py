@@ -1,10 +1,11 @@
 from pydantic import BaseModel
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from src.Model import Guild
 
+
 class Configuration(BaseModel):
-    
     guild_discord_server_id: str
     guild: Guild
 

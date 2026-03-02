@@ -1,21 +1,47 @@
-from src.Interfaces import IDatabaseManager
+from src.Interfaces import IDatabaseManager, IAlbionApiManager
 from src.Model import Player
 from pymongo import AsyncMongoClient
 
 
 class DatabaseManager(IDatabaseManager):
-    def __init__(self, database_url: str) -> None:
-        self._client = AsyncMongoClient(host=database_url)
-        self._data_base = self._client["guild-helper"]
+    def __init__(
+        self, database_url: str, albion_api_manager: IAlbionApiManager
+    ) -> None:
+        self.client = AsyncMongoClient(host=database_url)
+        self.data_base = self.client["guild-helper"]
+        self.albion_api_manager = albion_api_manager
 
     async def update_or_insert_player(
-        self, albion_character_id: int, discord_user_id: int
+        self,
+        discord_user_id: str,
+        albion_character_id: str | None = None,
+        albion_character_name: str | None = None,
     ) -> None:
-        await self._data_base["players"].update_one(
+
+        if not albion_character_id and not albion_character_name:
+            raise Exception(
+                "You must provide either the character Id or the Character Name"
+            )
+
+        if not albion_character_id and albion_character_name:
+            albion_character_id = await self.albion_api_manager.get_player_id_by_name(
+                player_name=albion_character_name
+            )
+
+        if albion_character_id and not albion_character_name:
+            albion_character_name = await self.albion_api_manager.get_player_name_by_id(
+                player_id=albion_character_id
+            )
+
+        await self.data_base["players"].update_one(
             filter={"albion_character_id": albion_character_id},
             update={
                 "$set": {"discord_user_id": discord_user_id},
-                "$setOnInsert": {"balance": 0, "all_time_balance": 0},
+                "$setOnInsert": {
+                    "albion_character_name": albion_character_name,
+                    "balance": 0,
+                    "all_time_balance": 0,
+                },
             },
             upsert=True,
         )
@@ -35,7 +61,7 @@ class DatabaseManager(IDatabaseManager):
         else:
             update = {"$inc": {"balance": amount}}
 
-        await self._data_base["players"].update_many(filter=query, update=update)
+        await self.data_base["players"].update_many(filter=query, update=update)
 
     async def get_players(
         self,
@@ -56,7 +82,7 @@ class DatabaseManager(IDatabaseManager):
 
         players = [
             Player.model_validate(player)
-            for player in await self._data_base["players"].find(filter).to_list()
+            for player in await self.data_base["players"].find(filter).to_list()
         ]
 
         return players

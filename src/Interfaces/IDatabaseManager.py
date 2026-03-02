@@ -5,7 +5,10 @@ from src.Model import Player
 class IDatabaseManager(ABC):
     @abstractmethod
     async def update_or_insert_player(
-        self, albion_character_id: str, discord_user_id: str
+        self,
+        discord_user_id: str,
+        albion_character_id: str | None = None,
+        albion_character_name: str | None = None,
     ) -> None:
         pass
 

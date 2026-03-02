@@ -7,5 +7,6 @@ if TYPE_CHECKING:
 
 class Alliance(BaseModel):
     name: str
+    tag: str
     id: str
     guilds: list[Guild]
