@@ -20,5 +20,3 @@ def create_bot(permission_manager: IPermissionManager) -> commands.Bot:
         print(f"Logged in as {bot.user} (ID: {bot.user.id})")
 
     return bot
-
-

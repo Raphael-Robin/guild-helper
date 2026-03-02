@@ -24,11 +24,19 @@ class PermissionManager(IPermissionManager):
     async def is_player_in_guild(self, player: Player, guild: Guild) -> bool:
         player_guild = self.albion_api_manager.get_player_guild(player=player)
         return player_guild == guild
-    
-    async def get_character_info(self, albion_character_name: str) -> dict[str,str]:
-        player_id = await self.albion_api_manager.get_player_id_by_name(albion_character_name)
-        player = Player(albion_character_id=player_id, albion_character_name=albion_character_name)
+
+    async def get_character_info(self, albion_character_name: str) -> dict[str, str]:
+        player_id = await self.albion_api_manager.get_player_id_by_name(
+            albion_character_name
+        )
+        player = Player(
+            albion_character_id=player_id, albion_character_name=albion_character_name
+        )
         guild = await self.albion_api_manager.get_player_guild(player=player)
         alliance = await self.albion_api_manager.get_player_alliance(player=player)
 
-        return {"name": player.albion_character_name, "guild": guild.name, "alliance": alliance.name}
+        return {
+            "name": player.albion_character_name,
+            "guild": guild.name,
+            "alliance": alliance.name,
+        }

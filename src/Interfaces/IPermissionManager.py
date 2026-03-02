@@ -9,5 +9,5 @@ class IPermissionManager(ABC):
         pass
 
     @abstractmethod
-    async def get_character_info(self, albion_character_name:str) -> dict[str,str]:
+    async def get_character_info(self, albion_character_name: str) -> dict[str, str]:
         pass

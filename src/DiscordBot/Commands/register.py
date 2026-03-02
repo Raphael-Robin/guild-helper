@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from src.Interfaces import IPermissionManager  
+from src.Interfaces import IPermissionManager
 
 
 class RegistrationCog(commands.Cog):
@@ -9,7 +9,9 @@ class RegistrationCog(commands.Cog):
         self.bot = bot
         self.permission_manager = permission_manager
 
-    @app_commands.command(name="register", description="Register your Albion Online character.")
+    @app_commands.command(
+        name="register", description="Register your Albion Online character."
+    )
     @app_commands.describe(character_name="Your Albion Online character name")
     async def register(self, interaction: discord.Interaction, character_name: str):
         # Defer while we look up the character
@@ -28,12 +30,16 @@ class RegistrationCog(commands.Cog):
         # Send confirmation embed with a Confirm button
         embed = discord.Embed(
             title="Character Found!",
-            description=f"Is this your character?",
+            description="Is this your character?",
             color=discord.Color.blue(),
         )
         embed.add_field(name="Name", value=character_info["name"], inline=True)
-        embed.add_field(name="Guild", value=character_info.get("guild", "N/A"), inline=True)
-        embed.add_field(name="Alliance", value=character_info.get("alliance", "N/A"), inline=True)
+        embed.add_field(
+            name="Guild", value=character_info.get("guild", "N/A"), inline=True
+        )
+        embed.add_field(
+            name="Alliance", value=character_info.get("alliance", "N/A"), inline=True
+        )
 
         view = ConfirmRegistrationView(
             discord_user_id=str(interaction.user.id),
@@ -48,14 +54,21 @@ class RegistrationCog(commands.Cog):
 
 
 class ConfirmRegistrationView(discord.ui.View):
-    def __init__(self, discord_user_id: str, character_name: str, permission_manager: IPermissionManager):
+    def __init__(
+        self,
+        discord_user_id: str,
+        character_name: str,
+        permission_manager: IPermissionManager,
+    ):
         super().__init__(timeout=60)
         self.discord_user_id = discord_user_id
         self.character_name = character_name
         self.permission_manager = permission_manager
 
     @discord.ui.button(label="✅ Confirm", style=discord.ButtonStyle.success)
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def confirm(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await interaction.response.defer()
         await self.permission_manager.register_albion_character(
             discord_user_id=self.discord_user_id,
