@@ -1,20 +1,20 @@
 from abc import ABC, abstractmethod
 from src.Model import Player, Guild, Alliance
 
+
 class IAlbionApiManager(ABC):
-
     @abstractmethod
-    def get_player_by_name(self, player_name: str) -> Player:
+    async def get_player_id_by_name(self, player_name: str) -> str:
         pass
 
     @abstractmethod
-    def get_player_guild(self, Player: Player) -> Guild:
+    async def get_player_guild_id(self, Player: Player) -> str:
         pass
 
     @abstractmethod
-    def is_player_in_guild(self, player:Player, guild: Guild) -> bool:
+    async def is_player_in_guild(self, player: Player, guild: Guild) -> bool:
         pass
 
     @abstractmethod
-    def is_player_in_alliance(self, player:Player, guild: Alliance) -> bool:
+    async def is_player_in_alliance(self, player: Player, guild: Alliance) -> bool:
         pass

@@ -6,12 +6,4 @@ from src.Model.action import Action
 from src.Model.guild import Guild
 from src.Model.alliance import Alliance
 
-__all__ = [
-    'Lootsplit', 
-    'Player', 
-    'Configuration', 
-    'Log', 
-    'Action', 
-    'Guild',
-    'Alliance'
-]
+__all__ = ["Lootsplit", "Player", "Configuration", "Log", "Action", "Guild", "Alliance"]

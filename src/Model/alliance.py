@@ -1,8 +1,11 @@
 from pydantic import BaseModel
-from src.Model import Guild
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.Model import Guild
+
 
 class Alliance(BaseModel):
-
     name: str
-    id: int 
+    id: str
     guilds: list[Guild]
