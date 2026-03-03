@@ -16,25 +16,37 @@ class LootsplitManager(ILootsplitManager):
     async def create_lootsplit(
         self, item_value: int, silver: int, repair_cost: int
     ) -> Lootsplit:
+        config = await self.configuration_manager.get_config()
         return Lootsplit(
-            configuration=await self.configuration_manager.get_config(),
+            configuration=config,
             players=[],
             item_value=item_value,
             silver=silver,
             repair_cost=repair_cost,
         )
+    
+    async def add_players_by_name(self, character_names: list[str], lootsplit_id: int) -> None:
+        players = await self.database_manager.get_or_create_players_from_characters(character_names=character_names)
+        lootsplit = await self.database_manager.get_lootsplit_by_id(lootsplit_id=lootsplit_id)
+        lootsplit.players.extend([player for player in players if player not in lootsplit.players])
+        await self.database_manager.save_or_update_lootsplit(lootsplit=lootsplit)
+
 
     async def add_players(self, players: list[Player], lootsplit_id: int) -> None:
         lootsplit = await self.database_manager.get_lootsplit_by_id(lootsplit_id=lootsplit_id)
-        lootsplit.players.extend(players)
+        lootsplit.players.extend([player for player in players if player not in lootsplit.players])
         await self.database_manager.save_or_update_lootsplit(lootsplit=lootsplit)
 
 
     async def add_balances(self, lootsplit_id: int) -> None:
         lootsplit = await self.database_manager.get_lootsplit_by_id(lootsplit_id=lootsplit_id)
+        if lootsplit.paid_out:
+            raise Exception("Lootsplit already paid out")
         await self.economy_manager.add_balances(
             albion_character_ids=[player.albion_character_id for player in lootsplit.players], 
             amount=self.get_lootsplit_value_per_player(lootsplit=lootsplit))
+        lootsplit.paid_out = True
+        await self.database_manager.save_or_update_lootsplit(lootsplit=lootsplit)
 
     def get_lootsplit_value_total(self, lootsplit:Lootsplit) -> int:
         return round((lootsplit.item_value + lootsplit.silver - lootsplit.repair_cost) * (lootsplit.configuration.guild_tax_percent / 100))

@@ -6,8 +6,8 @@ class IDatabaseManager(ABC):
     @abstractmethod
     async def update_or_insert_player(
         self,
-        discord_user_id: str,
-        albion_character_id: str | None = None,
+        albion_character_id: str,
+        discord_user_id: str | None = None,
         albion_character_name: str | None = None,
     ) -> None:
         pass
@@ -53,4 +53,12 @@ class IDatabaseManager(ABC):
 
     @abstractmethod
     async def save_or_update_lootsplit(self, lootsplit: Lootsplit) -> None:
+        pass
+
+    @abstractmethod
+    async def get_players_by_discord_id(self, discord_id: str) -> list[Player]:
+        pass
+
+    @abstractmethod
+    async def get_or_create_players_from_characters(self, character_names: list[str]) -> list[Player]:
         pass

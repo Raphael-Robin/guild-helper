@@ -20,25 +20,16 @@ class DatabaseManager(IDatabaseManager):
             {"$setOnInsert": {"seq": 0}},
             upsert=True
         )
+        await self.data_base.economy_logs.find({}).to_list()
 
     async def update_or_insert_player(
         self,
-        discord_user_id: str,
-        albion_character_id: str | None = None,
+        albion_character_id: str,
+        discord_user_id: str | None = None,
         albion_character_name: str | None = None,
     ) -> None:
 
-        if not albion_character_id and not albion_character_name:
-            raise Exception(
-                "You must provide either the character Id or the Character Name"
-            )
-
-        if not albion_character_id and albion_character_name:
-            albion_character_id = await self.albion_api_manager.get_player_id_by_name(
-                player_name=albion_character_name
-            )
-
-        if albion_character_id and not albion_character_name:
+        if not albion_character_name:
             albion_character_name = await self.albion_api_manager.get_player_name_by_id(
                 player_id=albion_character_id
             )
@@ -131,7 +122,10 @@ class DatabaseManager(IDatabaseManager):
         await self.economy_logs.insert_one(log)
 
     async def get_lootsplit_by_id(self, lootsplit_id: int) -> Lootsplit:
-        return Lootsplit.model_validate(await self.lootsplits.find_one({ '_id': lootsplit_id}))    
+        document = await self.lootsplits.find_one({'_id': lootsplit_id})
+        if document is None:
+            raise Exception(f"Lootsplit with id {lootsplit_id} not found")
+        return Lootsplit.model_validate(document)
     
     async def save_or_update_lootsplit(self, lootsplit: Lootsplit) -> None:
         if lootsplit.id is None:
@@ -149,8 +143,24 @@ class DatabaseManager(IDatabaseManager):
         """Atomically increments and returns the next ID."""
         result = await self.data_base.counters.find_one_and_update(
             {"_id": sequence_name},
-            {"$inc": {"seq": 1},"$setOnInsert": {"seq": 0}},
+            {"$inc": {"seq": 1}},
             upsert=True,
             return_document=True
         )
-        return result["seq"]
+        return result["seq"] # type: ignore
+    
+    async def get_players_by_discord_id(self, discord_id: str) -> list[Player]:
+        player_dicts = await self.players.find({"discord_user_id": discord_id}).to_list()
+        return [Player.model_validate(player) for player in player_dicts]
+    
+    async def get_or_create_players_from_characters(self, character_names: list[str]) -> list[Player]:
+        players = []
+        for name in character_names:
+            player_list = await self.get_players(albion_character_name=name)
+            if not player_list:
+                albion_character_id = await self.albion_api_manager.get_player_id_by_name(player_name=name)
+                await self.update_or_insert_player(albion_character_id=albion_character_id,albion_character_name=name,)
+                player_list = await self.get_players(albion_character_name=name)
+
+            players.append(player_list[0])
+        return players

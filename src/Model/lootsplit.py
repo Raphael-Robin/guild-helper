@@ -12,3 +12,4 @@ class Lootsplit(BaseModel):
     item_value: int
     silver: int
     repair_cost: int
+    paid_out: bool = False

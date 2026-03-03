@@ -7,5 +7,7 @@ from src.Model.guild import Guild
 from src.Model.alliance import Alliance
 
 Alliance.model_rebuild()
+Configuration.model_rebuild()
+Lootsplit.model_rebuild()
 
 __all__ = ["Lootsplit", "Player", "Configuration", "Log", "Action", "Guild", "Alliance"]
