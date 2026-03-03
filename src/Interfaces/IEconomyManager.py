@@ -4,15 +4,15 @@ from src.Model import Player
 
 class IEconomyManager(ABC):
     @abstractmethod
-    def get_balance(self, player: Player) -> int:
+    async def get_balance(self, discord_user_id: str) -> int:
         pass
 
     @abstractmethod
-    def add_balance(self, player: Player, amount: int):
+    async def add_balance(self, albion_character_ids: list[str], amount: int) -> None:
         pass
 
     @abstractmethod
-    def remove_balance(self, player: Player, amount: int):
+    async def remove_balance(self, discord_user_id: str, amount: int) -> None:
         pass
 
     @abstractmethod
