@@ -31,7 +31,7 @@ class EconomyManager(IEconomyManager):
 
             if self.logger:
                 log = Log(player=player, action=Action.add, amount=amount)
-                self.logger.log_economy(log=log)
+                await self.logger.log_economy(log=log)
 
         await self.database_manager.update_balances(albion_character_ids, amount=amount)
 
@@ -50,17 +50,30 @@ class EconomyManager(IEconomyManager):
 
                 if self.logger:
                     log = Log(player=player, action=Action.add, amount=amount)
-                    self.logger.log_economy(log=log)
+                    await self.logger.log_economy(log=log)
 
                 await self.database_manager.update_balance(
                     player.albion_character_id, -balance_to_remove
                 )
 
-    async def get_alltime_balance(self, player: Player) -> int:
-        pass
+    async def get_alltime_balance(self, discord_user_id: str) -> int:
+        players = await self.database_manager.get_players(
+            discord_user_id=discord_user_id
+        )
+        return sum([player.all_time_balance for player in players])
 
-    async def get_players_with_highest_balance(self) -> list[Player]:
-        pass
+    async def get_players_with_highest_balance(
+        self, nb_players: int, offset: int
+    ) -> list[Player]:
+        players = await self.database_manager.get_top_balance_players(
+            nb_players=nb_players, offset=offset
+        )
+        return players
 
-    def get_players_with_highest_alltime_balance(self) -> list[Player]:
-        pass
+    async def get_players_with_highest_alltime_balance(
+        self, nb_players: int, offset: int
+    ) -> list[Player]:
+        players = await self.database_manager.get_top_all_time_balance_players(
+            nb_players=nb_players, offset=offset
+        )
+        return players

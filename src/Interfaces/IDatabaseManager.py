@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from src.Model import Player
+from src.Model import Player, Log
 
 
 class IDatabaseManager(ABC):
@@ -29,4 +29,20 @@ class IDatabaseManager(ABC):
         albion_character_id: str | None = None,
         albion_character_name: str | None = None,
     ) -> list[Player]:
+        pass
+
+    @abstractmethod
+    async def get_top_balance_players(
+        self, nb_players: int, offset: int
+    ) -> list[Player]:
+        pass
+
+    @abstractmethod
+    async def get_top_all_time_balance_players(
+        self, nb_players: int, offset: int
+    ) -> list[Player]:
+        pass
+
+    @abstractmethod
+    async def save_economy_log(self, log: Log) -> None:
         pass

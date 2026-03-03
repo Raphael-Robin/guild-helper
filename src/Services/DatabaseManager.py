@@ -1,5 +1,5 @@
 from src.Interfaces import IDatabaseManager, IAlbionApiManager
-from src.Model import Player
+from src.Model import Player, Log
 from pymongo import AsyncMongoClient
 
 
@@ -9,6 +9,7 @@ class DatabaseManager(IDatabaseManager):
     ) -> None:
         self.client = AsyncMongoClient(host=database_url)
         self.data_base = self.client["guild-helper"]
+        self.economy_logs = self.data_base["economy_logs"]
         self.albion_api_manager = albion_api_manager
 
     async def update_or_insert_player(
@@ -86,3 +87,36 @@ class DatabaseManager(IDatabaseManager):
         ]
 
         return players
+
+    async def get_top_balance_players(
+        self, nb_players: int, offset: int
+    ) -> list[Player]:
+        players_cursor = (
+            self.data_base["players"]
+            .find({})
+            .sort("balance", -1)
+            .skip(offset)
+            .limit(nb_players)
+        )
+        players = []
+        async for player in players_cursor:
+            players.append(Player.model_validate(player))
+        return players
+
+    async def get_top_all_time_balance_players(
+        self, nb_players: int, offset: int
+    ) -> list[Player]:
+        players_cursor = (
+            self.data_base["players"]
+            .find({})
+            .sort("all_time_balance", -1)
+            .skip(offset)
+            .limit(nb_players)
+        )
+        players = []
+        async for player in players_cursor:
+            players.append(Player.model_validate(player))
+        return players
+
+    async def save_economy_log(self, log: Log) -> None:
+        await self.economy_logs.insert_one(log)

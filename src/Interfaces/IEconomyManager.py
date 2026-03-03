@@ -16,13 +16,17 @@ class IEconomyManager(ABC):
         pass
 
     @abstractmethod
-    def get_alltime_balance(self, player: Player) -> int:
+    async def get_alltime_balance(self, discord_user_id: str) -> int:
         pass
 
     @abstractmethod
-    def get_players_with_highest_balance(self) -> list[Player]:
+    async def get_players_with_highest_balance(
+        self, nb_players: int, offset: int
+    ) -> list[Player]:
         pass
 
     @abstractmethod
-    def get_players_with_highest_alltime_balance(self) -> list[Player]:
+    async def get_players_with_highest_alltime_balance(
+        self, nb_players: int, offset: int
+    ) -> list[Player]:
         pass
