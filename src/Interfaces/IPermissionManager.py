@@ -11,3 +11,7 @@ class IPermissionManager(ABC):
     @abstractmethod
     async def get_character_info(self, albion_character_name: str) -> dict[str, str]:
         pass
+
+    @abstractmethod
+    async def is_character_already_registered(self, albion_character_name: str) -> bool:
+        pass

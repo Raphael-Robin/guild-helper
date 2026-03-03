@@ -40,3 +40,10 @@ class PermissionManager(IPermissionManager):
             "guild": guild.name,
             "alliance": alliance.name,
         }
+
+    async def is_character_already_registered(self, albion_character_name: str) -> bool:
+        players = (await self.database_manager.get_players(albion_character_name=albion_character_name))
+        if not players:
+            return False
+        player = players[0]
+        return player.discord_user_id is not None

@@ -141,7 +141,7 @@ class DatabaseManager(IDatabaseManager):
 
         await self.lootsplits.update_one(
             filter={'_id': lootsplit.id},
-            update={'$set': data},
+            update={'$set': data, "$setOnInsert": {"seq": 0}},
             upsert=True
         )
     
@@ -149,7 +149,8 @@ class DatabaseManager(IDatabaseManager):
         """Atomically increments and returns the next ID."""
         result = await self.data_base.counters.find_one_and_update(
             {"_id": sequence_name},
-            {"$inc": {"seq": 1}},
-            return_document=True # Returns the document AFTER the increment
+            {"$inc": {"seq": 1},"$setOnInsert": {"seq": 0}},
+            upsert=True,
+            return_document=True
         )
         return result["seq"]
