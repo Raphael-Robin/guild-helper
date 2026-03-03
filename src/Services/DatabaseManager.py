@@ -1,5 +1,5 @@
 from src.Interfaces import IDatabaseManager, IAlbionApiManager
-from src.Model import Player, Log
+from src.Model import Player, Log, Lootsplit
 from pymongo import AsyncMongoClient
 
 
@@ -10,7 +10,16 @@ class DatabaseManager(IDatabaseManager):
         self.client = AsyncMongoClient(host=database_url)
         self.data_base = self.client["guild-helper"]
         self.economy_logs = self.data_base["economy_logs"]
+        self.lootsplits = self.data_base["lootsplits"]
+        self.players = self.data_base["players"]
         self.albion_api_manager = albion_api_manager
+
+    async def setup(self):
+        await self.data_base.counters.update_one(
+            {"_id": "lootsplit_id"},
+            {"$setOnInsert": {"seq": 0}},
+            upsert=True
+        )
 
     async def update_or_insert_player(
         self,
@@ -34,7 +43,7 @@ class DatabaseManager(IDatabaseManager):
                 player_id=albion_character_id
             )
 
-        await self.data_base["players"].update_one(
+        await self.players.update_one(
             filter={"albion_character_id": albion_character_id},
             update={
                 "$set": {"discord_user_id": discord_user_id},
@@ -62,7 +71,7 @@ class DatabaseManager(IDatabaseManager):
         else:
             update = {"$inc": {"balance": amount}}
 
-        await self.data_base["players"].update_many(filter=query, update=update)
+        await self.players.update_many(filter=query, update=update)
 
     async def get_players(
         self,
@@ -83,7 +92,7 @@ class DatabaseManager(IDatabaseManager):
 
         players = [
             Player.model_validate(player)
-            for player in await self.data_base["players"].find(filter).to_list()
+            for player in await self.players.find(filter).to_list()
         ]
 
         return players
@@ -92,7 +101,7 @@ class DatabaseManager(IDatabaseManager):
         self, nb_players: int, offset: int
     ) -> list[Player]:
         players_cursor = (
-            self.data_base["players"]
+            self.players
             .find({})
             .sort("balance", -1)
             .skip(offset)
@@ -107,7 +116,7 @@ class DatabaseManager(IDatabaseManager):
         self, nb_players: int, offset: int
     ) -> list[Player]:
         players_cursor = (
-            self.data_base["players"]
+            self.players
             .find({})
             .sort("all_time_balance", -1)
             .skip(offset)
@@ -120,3 +129,27 @@ class DatabaseManager(IDatabaseManager):
 
     async def save_economy_log(self, log: Log) -> None:
         await self.economy_logs.insert_one(log)
+
+    async def get_lootsplit_by_id(self, lootsplit_id: int) -> Lootsplit:
+        return Lootsplit.model_validate(await self.lootsplits.find_one({ '_id': lootsplit_id}))    
+    
+    async def save_or_update_lootsplit(self, lootsplit: Lootsplit) -> None:
+        if lootsplit.id is None:
+            lootsplit.id = await self.get_next_sequence_value("lootsplit_id")
+
+        data = lootsplit.model_dump(by_alias=True, exclude_none=True)
+
+        await self.lootsplits.update_one(
+            filter={'_id': lootsplit.id},
+            update={'$set': data},
+            upsert=True
+        )
+    
+    async def get_next_sequence_value(self, sequence_name: str) -> int:
+        """Atomically increments and returns the next ID."""
+        result = await self.data_base.counters.find_one_and_update(
+            {"_id": sequence_name},
+            {"$inc": {"seq": 1}},
+            return_document=True # Returns the document AFTER the increment
+        )
+        return result["seq"]

@@ -8,7 +8,7 @@ class IEconomyManager(ABC):
         pass
 
     @abstractmethod
-    async def add_balance(self, albion_character_ids: list[str], amount: int) -> None:
+    async def add_balances(self, albion_character_ids: list[str], amount: int) -> None:
         pass
 
     @abstractmethod

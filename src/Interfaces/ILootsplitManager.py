@@ -10,9 +10,9 @@ class ILootsplitManager(ABC):
         pass
 
     @abstractmethod
-    async def add_players(self, players: list[Player]) -> None:
+    async def add_players(self, players: list[Player], lootsplit_id: int) -> None:
         pass
 
     @abstractmethod
-    async def add_balances(self) -> None:
+    async def add_balances(self, lootsplit_id: int) -> None:
         pass

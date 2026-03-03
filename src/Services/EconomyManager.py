@@ -19,7 +19,7 @@ class EconomyManager(IEconomyManager):
 
         return balance
 
-    async def add_balance(self, albion_character_ids: list[str], amount: int) -> None:
+    async def add_balances(self, albion_character_ids: list[str], amount: int) -> None:
         if not amount > 0 or not albion_character_ids:
             return
         for albion_character_id in albion_character_ids:

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from src.Model import Player, Log
+from src.Model import Player, Log, Lootsplit
 
 
 class IDatabaseManager(ABC):
@@ -45,4 +45,12 @@ class IDatabaseManager(ABC):
 
     @abstractmethod
     async def save_economy_log(self, log: Log) -> None:
+        pass
+
+    @abstractmethod
+    async def get_lootsplit_by_id(self, lootsplit_id: int) -> Lootsplit:
+        pass
+
+    @abstractmethod
+    async def save_or_update_lootsplit(self, lootsplit: Lootsplit) -> None:
         pass
