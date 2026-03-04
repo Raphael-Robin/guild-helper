@@ -85,9 +85,11 @@ class AlbionApiManager(IAlbionApiManager):
             data = response.json()
             for p_data in data.get("guilds", []):
                 if p_data["Name"].lower() == guild_name.lower():
-                    return Guild.model_validate({"name": p_data["Name"],"id": p_data["Id"]})
+                    return Guild.model_validate(
+                        {"name": p_data["Name"], "id": p_data["Id"]}
+                    )
         raise Exception()
-    
+
     async def get_player_by_name(self, player_name: str) -> Player:
         query = f"{self.base_url}/search"
         params = {"q": player_name}
@@ -96,5 +98,10 @@ class AlbionApiManager(IAlbionApiManager):
             data = response.json()
             for p_data in data.get("players", []):
                 if p_data["Name"].lower() == player_name.lower():
-                    return Player.model_validate({"albion_character_name" : p_data["Name"],"albion_character_id" : p_data["Id"],})
+                    return Player.model_validate(
+                        {
+                            "albion_character_name": p_data["Name"],
+                            "albion_character_id": p_data["Id"],
+                        }
+                    )
         raise Exception()

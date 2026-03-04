@@ -60,13 +60,15 @@ class IDatabaseManager(ABC):
         pass
 
     @abstractmethod
-    async def get_or_create_players_from_characters(self, character_names: list[str]) -> list[Player]:
+    async def get_or_create_players_from_characters(
+        self, character_names: list[str]
+    ) -> list[Player]:
         pass
 
     @abstractmethod
     async def get_configuration(self, guild_discord_server_id: str) -> Configuration:
         pass
-    @abstractmethod
 
+    @abstractmethod
     async def save_or_update_configuration(self, config: Configuration) -> None:
         pass

@@ -30,7 +30,9 @@ class ConfigurationCog(commands.Cog):
     # /config-view
     # -------------------------------------------------------------------------
 
-    @app_commands.command(name="config-view", description="[Admin] View the current server configuration.")
+    @app_commands.command(
+        name="config-view", description="[Admin] View the current server configuration."
+    )
     @app_commands.checks.has_permissions(administrator=True)
     async def config_view(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -42,7 +44,10 @@ class ConfigurationCog(commands.Cog):
     # /config-set-guild
     # -------------------------------------------------------------------------
 
-    @app_commands.command(name="config-set-guild", description="[Admin] Link this server to an Albion Online guild.")
+    @app_commands.command(
+        name="config-set-guild",
+        description="[Admin] Link this server to an Albion Online guild.",
+    )
     @app_commands.describe(guild_name="The exact Albion Online guild name")
     @app_commands.checks.has_permissions(administrator=True)
     async def config_set_guild(self, interaction: discord.Interaction, guild_name: str):
@@ -51,7 +56,8 @@ class ConfigurationCog(commands.Cog):
         guild_data = await self.albion_api_manager.get_guild_by_name(guild_name)
         if guild_data is None:
             await interaction.followup.send(
-                f"❌ Could not find an Albion guild named **{guild_name}**.", ephemeral=True
+                f"❌ Could not find an Albion guild named **{guild_name}**.",
+                ephemeral=True,
             )
             return
 
@@ -60,14 +66,17 @@ class ConfigurationCog(commands.Cog):
         await self._save_config(config)
 
         await interaction.followup.send(
-            f"✅ Guild linked to **{guild_data.name}** (`{guild_data.id}`).", ephemeral=True
+            f"✅ Guild linked to **{guild_data.name}** (`{guild_data.id}`).",
+            ephemeral=True,
         )
 
     # -------------------------------------------------------------------------
     # /config-set-roles
     # -------------------------------------------------------------------------
 
-    @app_commands.command(name="config-set-roles", description="[Admin] Configure server roles.")
+    @app_commands.command(
+        name="config-set-roles", description="[Admin] Configure server roles."
+    )
     @app_commands.describe(
         admin_role="The admin role",
         member_role="The guild member role",
@@ -122,7 +131,9 @@ class ConfigurationCog(commands.Cog):
     # /config-set-lootsplit
     # -------------------------------------------------------------------------
 
-    @app_commands.command(name="config-set-lootsplit", description="[Admin] Configure lootsplit settings.")
+    @app_commands.command(
+        name="config-set-lootsplit", description="[Admin] Configure lootsplit settings."
+    )
     @app_commands.describe(
         guild_tax_percent="Guild tax percentage (0–100)",
         sale_tax_percent="Albion sale tax percentage (0–100)",
@@ -191,14 +202,18 @@ class ConfigurationCog(commands.Cog):
     @config_set_guild.error
     @config_set_roles.error
     @config_set_lootsplit.error
-    async def config_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+    async def config_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ):
         if isinstance(error, app_commands.MissingPermissions):
             await interaction.response.send_message(
                 "❌ You don't have permission to use this command.", ephemeral=True
             )
 
 
-def _build_config_embed(config: Configuration, guild: discord.Guild | None) -> discord.Embed:
+def _build_config_embed(
+    config: Configuration, guild: discord.Guild | None
+) -> discord.Embed:
     embed = discord.Embed(
         title="⚙️ Server Configuration",
         color=discord.Color.blurple(),
@@ -212,7 +227,11 @@ def _build_config_embed(config: Configuration, guild: discord.Guild | None) -> d
             inline=False,
         )
     else:
-        embed.add_field(name="🏰 Albion Guild", value="Not set — use `/config-set-guild`", inline=False)
+        embed.add_field(
+            name="🏰 Albion Guild",
+            value="Not set — use `/config-set-guild`",
+            inline=False,
+        )
 
     # Roles
     def role_str(role_id: str | None) -> str:
@@ -220,14 +239,32 @@ def _build_config_embed(config: Configuration, guild: discord.Guild | None) -> d
             return "Not set"
         return f"<@&{role_id}>"
 
-    embed.add_field(name="👑 Admin Role",          value=role_str(config.admin_role_id),          inline=True)
-    embed.add_field(name="⚔️ Member Role",          value=role_str(config.member_role_id),         inline=True)
-    embed.add_field(name="🤝 Ally Role",            value=role_str(config.ally_role_id),           inline=True)
-    embed.add_field(name="🛒 Lootsplit Buyer Role", value=role_str(config.lootsplit_buyer_role_id), inline=True)
+    embed.add_field(
+        name="👑 Admin Role", value=role_str(config.admin_role_id), inline=True
+    )
+    embed.add_field(
+        name="⚔️ Member Role", value=role_str(config.member_role_id), inline=True
+    )
+    embed.add_field(
+        name="🤝 Ally Role", value=role_str(config.ally_role_id), inline=True
+    )
+    embed.add_field(
+        name="🛒 Lootsplit Buyer Role",
+        value=role_str(config.lootsplit_buyer_role_id),
+        inline=True,
+    )
 
     # Lootsplit settings
-    embed.add_field(name="🏦 Guild Tax",      value=f"{config.guild_tax_percent}%",             inline=True)
-    embed.add_field(name="💸 Sale Tax",       value=f"{config.lootsplit_sale_tax_percent}%",    inline=True)
-    embed.add_field(name="⏱️ Sale Timer",     value=f"{config.lootsplit_sale_timer_minutes} min", inline=True)
+    embed.add_field(
+        name="🏦 Guild Tax", value=f"{config.guild_tax_percent}%", inline=True
+    )
+    embed.add_field(
+        name="💸 Sale Tax", value=f"{config.lootsplit_sale_tax_percent}%", inline=True
+    )
+    embed.add_field(
+        name="⏱️ Sale Timer",
+        value=f"{config.lootsplit_sale_timer_minutes} min",
+        inline=True,
+    )
 
     return embed

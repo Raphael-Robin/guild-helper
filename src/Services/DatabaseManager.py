@@ -16,9 +16,7 @@ class DatabaseManager(IDatabaseManager):
 
     async def setup(self):
         await self.data_base.counters.update_one(
-            {"_id": "lootsplit_id"},
-            {"$setOnInsert": {"seq": 0}},
-            upsert=True
+            {"_id": "lootsplit_id"}, {"$setOnInsert": {"seq": 0}}, upsert=True
         )
         await self.data_base.economy_logs.find({}).to_list()
 
@@ -92,11 +90,7 @@ class DatabaseManager(IDatabaseManager):
         self, nb_players: int, offset: int
     ) -> list[Player]:
         players_cursor = (
-            self.players
-            .find({})
-            .sort("balance", -1)
-            .skip(offset)
-            .limit(nb_players)
+            self.players.find({}).sort("balance", -1).skip(offset).limit(nb_players)
         )
         players = []
         async for player in players_cursor:
@@ -107,8 +101,7 @@ class DatabaseManager(IDatabaseManager):
         self, nb_players: int, offset: int
     ) -> list[Player]:
         players_cursor = (
-            self.players
-            .find({})
+            self.players.find({})
             .sort("all_time_balance", -1)
             .skip(offset)
             .limit(nb_players)
@@ -122,11 +115,11 @@ class DatabaseManager(IDatabaseManager):
         await self.economy_logs.insert_one(log)
 
     async def get_lootsplit_by_id(self, lootsplit_id: int) -> Lootsplit:
-        document = await self.lootsplits.find_one({'_id': lootsplit_id})
+        document = await self.lootsplits.find_one({"_id": lootsplit_id})
         if document is None:
             raise Exception(f"Lootsplit with id {lootsplit_id} not found")
         return Lootsplit.model_validate(document)
-    
+
     async def save_or_update_lootsplit(self, lootsplit: Lootsplit) -> None:
         if lootsplit.id is None:
             lootsplit.id = await self.get_next_sequence_value("lootsplit_id")
@@ -134,37 +127,48 @@ class DatabaseManager(IDatabaseManager):
         data = lootsplit.model_dump(by_alias=True, exclude_none=True)
 
         await self.lootsplits.update_one(
-            filter={'_id': lootsplit.id},
-            update={'$set': data, "$setOnInsert": {"seq": 0}},
-            upsert=True
+            filter={"_id": lootsplit.id},
+            update={"$set": data, "$setOnInsert": {"seq": 0}},
+            upsert=True,
         )
-    
+
     async def get_next_sequence_value(self, sequence_name: str) -> int:
         """Atomically increments and returns the next ID."""
         result = await self.data_base.counters.find_one_and_update(
             {"_id": sequence_name},
             {"$inc": {"seq": 1}},
             upsert=True,
-            return_document=True
+            return_document=True,
         )
-        return result["seq"] # type: ignore
-    
+        return result["seq"]  # type: ignore
+
     async def get_players_by_discord_id(self, discord_id: str) -> list[Player]:
-        player_dicts = await self.players.find({"discord_user_id": discord_id}).to_list()
+        player_dicts = await self.players.find(
+            {"discord_user_id": discord_id}
+        ).to_list()
         return [Player.model_validate(player) for player in player_dicts]
-    
-    async def get_or_create_players_from_characters(self, character_names: list[str]) -> list[Player]:
+
+    async def get_or_create_players_from_characters(
+        self, character_names: list[str]
+    ) -> list[Player]:
         players = []
         for name in character_names:
             player_list = await self.get_players(albion_character_name=name)
             if not player_list:
-                albion_character_id = await self.albion_api_manager.get_player_id_by_name(player_name=name)
-                await self.update_or_insert_player(albion_character_id=albion_character_id,albion_character_name=name,)
+                albion_character_id = (
+                    await self.albion_api_manager.get_player_id_by_name(
+                        player_name=name
+                    )
+                )
+                await self.update_or_insert_player(
+                    albion_character_id=albion_character_id,
+                    albion_character_name=name,
+                )
                 player_list = await self.get_players(albion_character_name=name)
 
             players.append(player_list[0])
         return players
-    
+
     async def get_configuration(self, guild_discord_server_id: str) -> Configuration:
         document = await self.data_base["configurations"].find_one(
             {"guild_discord_server_id": guild_discord_server_id}

@@ -16,7 +16,11 @@ class RegistrationCog(commands.Cog):
     async def register(self, interaction: discord.Interaction, character_name: str):
         await interaction.response.defer(ephemeral=True)
 
-        already_registered = await self.permission_manager.is_character_already_registered(character_name)
+        already_registered = (
+            await self.permission_manager.is_character_already_registered(
+                character_name
+            )
+        )
         if already_registered:
             await interaction.followup.send(
                 f"⚠️ **{character_name}** is already registered to an account.\n"
@@ -25,7 +29,9 @@ class RegistrationCog(commands.Cog):
             )
             return
 
-        character_info = await self.permission_manager.get_character_info(character_name)
+        character_info = await self.permission_manager.get_character_info(
+            character_name
+        )
         if character_info is None:
             await interaction.followup.send(
                 f"❌ Could not find a character named **{character_name}**. Please check the name and try again.",
@@ -51,10 +57,17 @@ class RegistrationCog(commands.Cog):
         user="The Discord user to link this character to",
     )
     @app_commands.checks.has_permissions(administrator=True)
-    async def force_register(self, interaction: discord.Interaction, character_name: str, user: discord.Member):
+    async def force_register(
+        self,
+        interaction: discord.Interaction,
+        character_name: str,
+        user: discord.Member,
+    ):
         await interaction.response.defer(ephemeral=True)
 
-        character_info = await self.permission_manager.get_character_info(character_name)
+        character_info = await self.permission_manager.get_character_info(
+            character_name
+        )
         if character_info is None:
             await interaction.followup.send(
                 f"❌ Could not find a character named **{character_name}**. Please check the name and try again.",
@@ -73,7 +86,9 @@ class RegistrationCog(commands.Cog):
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     @force_register.error
-    async def force_register_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+    async def force_register_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ):
         if isinstance(error, app_commands.MissingPermissions):
             await interaction.response.send_message(
                 "❌ You don't have permission to use this command. Please contact an admin.",
@@ -81,19 +96,23 @@ class RegistrationCog(commands.Cog):
             )
 
 
-def _build_character_embed(character_info: dict, force: bool = False, target_user: discord.Member | None = None) -> discord.Embed:
+def _build_character_embed(
+    character_info: dict, force: bool = False, target_user: discord.Member | None = None
+) -> discord.Embed:
     embed = discord.Embed(
         title="⚠️ Force Register — Character Found!" if force else "Character Found!",
         description=(
             f"This will **overwrite** the existing registration and link the character to {target_user.mention}. Are you sure?"
-            if force else
-            "Is this your character?"
+            if force
+            else "Is this your character?"
         ),
         color=discord.Color.orange() if force else discord.Color.blue(),
     )
     embed.add_field(name="Name", value=character_info["name"], inline=True)
     embed.add_field(name="Guild", value=character_info.get("guild", "N/A"), inline=True)
-    embed.add_field(name="Alliance", value=character_info.get("alliance", "N/A"), inline=True)
+    embed.add_field(
+        name="Alliance", value=character_info.get("alliance", "N/A"), inline=True
+    )
     return embed
 
 
@@ -114,7 +133,9 @@ class ConfirmRegistrationView(discord.ui.View):
         self.target_user = target_user
 
     @discord.ui.button(label="✅ Confirm", style=discord.ButtonStyle.success)
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def confirm(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await interaction.response.defer()
         await self.permission_manager.register_albion_character(
             discord_user_id=self.discord_user_id,

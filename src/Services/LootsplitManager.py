@@ -1,4 +1,9 @@
-from src.Interfaces import ILootsplitManager, IConfigurationManager, IDatabaseManager, IEconomyManager
+from src.Interfaces import (
+    ILootsplitManager,
+    IConfigurationManager,
+    IDatabaseManager,
+    IEconomyManager,
+)
 from src.Model import Player, Lootsplit
 
 
@@ -24,33 +29,52 @@ class LootsplitManager(ILootsplitManager):
             silver=silver,
             repair_cost=repair_cost,
         )
-    
-    async def add_players_by_name(self, character_names: list[str], lootsplit_id: int) -> None:
-        players = await self.database_manager.get_or_create_players_from_characters(character_names=character_names)
-        lootsplit = await self.database_manager.get_lootsplit_by_id(lootsplit_id=lootsplit_id)
-        lootsplit.players.extend([player for player in players if player not in lootsplit.players])
-        await self.database_manager.save_or_update_lootsplit(lootsplit=lootsplit)
 
+    async def add_players_by_name(
+        self, character_names: list[str], lootsplit_id: int
+    ) -> None:
+        players = await self.database_manager.get_or_create_players_from_characters(
+            character_names=character_names
+        )
+        lootsplit = await self.database_manager.get_lootsplit_by_id(
+            lootsplit_id=lootsplit_id
+        )
+        lootsplit.players.extend(
+            [player for player in players if player not in lootsplit.players]
+        )
+        await self.database_manager.save_or_update_lootsplit(lootsplit=lootsplit)
 
     async def add_players(self, players: list[Player], lootsplit_id: int) -> None:
-        lootsplit = await self.database_manager.get_lootsplit_by_id(lootsplit_id=lootsplit_id)
-        lootsplit.players.extend([player for player in players if player not in lootsplit.players])
+        lootsplit = await self.database_manager.get_lootsplit_by_id(
+            lootsplit_id=lootsplit_id
+        )
+        lootsplit.players.extend(
+            [player for player in players if player not in lootsplit.players]
+        )
         await self.database_manager.save_or_update_lootsplit(lootsplit=lootsplit)
 
-
     async def add_balances(self, lootsplit_id: int) -> None:
-        lootsplit = await self.database_manager.get_lootsplit_by_id(lootsplit_id=lootsplit_id)
+        lootsplit = await self.database_manager.get_lootsplit_by_id(
+            lootsplit_id=lootsplit_id
+        )
         if lootsplit.paid_out:
             raise Exception("Lootsplit already paid out")
         amount = self.get_lootsplit_value_per_player(lootsplit=lootsplit)
-        albion_character_ids=[player.albion_character_id for player in lootsplit.players]
-        await self.economy_manager.add_balances(albion_character_ids=albion_character_ids, amount=amount)
+        albion_character_ids = [
+            player.albion_character_id for player in lootsplit.players
+        ]
+        await self.economy_manager.add_balances(
+            albion_character_ids=albion_character_ids, amount=amount
+        )
         lootsplit.paid_out = True
         await self.database_manager.save_or_update_lootsplit(lootsplit=lootsplit)
 
-    def get_lootsplit_value_total(self, lootsplit:Lootsplit) -> int:
-        return round((lootsplit.item_value + lootsplit.silver - lootsplit.repair_cost) * (1 - lootsplit.configuration.guild_tax_percent / 100))
-    
+    def get_lootsplit_value_total(self, lootsplit: Lootsplit) -> int:
+        return round(
+            (lootsplit.item_value + lootsplit.silver - lootsplit.repair_cost)
+            * (1 - lootsplit.configuration.guild_tax_percent / 100)
+        )
+
     def get_lootsplit_value_per_player(self, lootsplit: Lootsplit) -> int:
         total_value = self.get_lootsplit_value_total(lootsplit=lootsplit)
         nb_players = len(lootsplit.players)

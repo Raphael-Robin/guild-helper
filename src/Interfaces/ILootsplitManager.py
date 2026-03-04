@@ -20,7 +20,9 @@ class ILootsplitManager(ABC):
     @abstractmethod
     def get_lootsplit_value_per_player(self, lootsplit: Lootsplit) -> int:
         pass
-    
+
     @abstractmethod
-    async def add_players_by_name(self, character_names: list[str], lootsplit_id: int) -> None:
+    async def add_players_by_name(
+        self, character_names: list[str], lootsplit_id: int
+    ) -> None:
         pass

@@ -14,9 +14,11 @@ class PermissionManager(IPermissionManager):
     ) -> None:
 
         await self.database_manager.update_or_insert_player(
-            albion_character_id=await self.albion_api_manager.get_player_id_by_name(player_name=albion_character_name),
-            albion_character_name=albion_character_name, 
-            discord_user_id=discord_user_id
+            albion_character_id=await self.albion_api_manager.get_player_id_by_name(
+                player_name=albion_character_name
+            ),
+            albion_character_name=albion_character_name,
+            discord_user_id=discord_user_id,
         )
 
     async def is_player_in_alliance(self, player: Player, alliance: Alliance) -> bool:
@@ -48,9 +50,11 @@ class PermissionManager(IPermissionManager):
             "guild": guild.name if guild else "N/A",
             "alliance": alliance.name if alliance else "N/A",
         }
-    
+
     async def is_character_already_registered(self, albion_character_name: str) -> bool:
-        players = (await self.database_manager.get_players(albion_character_name=albion_character_name))
+        players = await self.database_manager.get_players(
+            albion_character_name=albion_character_name
+        )
         if not players:
             return False
         player = players[0]
