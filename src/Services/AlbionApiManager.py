@@ -98,6 +98,7 @@ class AlbionApiManager(IAlbionApiManager):
             data = response.json()
             for p_data in data.get("players", []):
                 if p_data["Name"].lower() == player_name.lower():
+                    print(p_data, flush=True)
                     return Player.model_validate(
                         {
                             "albion_character_name": p_data["Name"],

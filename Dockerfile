@@ -15,15 +15,3 @@ RUN uv sync --frozen --no-dev
 COPY . .
 
 CMD ["uv", "run", "python", "-m", "src.DiscordBot.main"]
-```
-
----
-
-**Update `.dockerignore`** to exclude uv's local cache:
-```
-.env
-.venv
-__pycache__
-*.pyc
-.git
-.python-version
