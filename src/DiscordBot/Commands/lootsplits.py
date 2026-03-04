@@ -66,50 +66,55 @@ def _build_lootsplit_embed(lootsplit: Lootsplit) -> discord.Embed:
 
     gross = lootsplit.item_value + lootsplit.silver
     after_repairs = gross - lootsplit.repair_cost
-    tax_amount = round(after_repairs * (config.guild_tax_percent / 100))
-    total_payout = after_repairs - tax_amount
+    sale_tax_amount = round(after_repairs * (config.lootsplit_sale_tax_percent / 100))
+    guild_tax_amount = round(after_repairs * (config.guild_tax_percent / 100))
+    after_taxes = after_repairs - sale_tax_amount - guild_tax_amount
+    total_payout = after_taxes
     per_player = round(total_payout / nb_players) if nb_players > 0 else 0
 
-    status = "✅ Paid Out" if lootsplit.paid_out else "⏳ Pending"
+    status = "Paid Out" if lootsplit.paid_out else "Pending"
     color = discord.Color.green() if lootsplit.paid_out else discord.Color.orange()
 
     embed = discord.Embed(
-        title=f"⚔️ Loot Split #{lootsplit.id}",
+        title=f"Loot Split #{lootsplit.id}",
         color=color,
     )
 
     embed.add_field(name="Status", value=status, inline=False)
-
-    embed.add_field(
-        name="📦 Item Value", value=f"{lootsplit.item_value:,}", inline=True
-    )
-    embed.add_field(name="🪙 Silver", value=f"{lootsplit.silver:,}", inline=True)
-    embed.add_field(
-        name="🔧 Repair Cost", value=f"{lootsplit.repair_cost:,}", inline=True
-    )
-
-    embed.add_field(name="Gross", value=f"{gross:,}", inline=True)
-    embed.add_field(name="After Repairs", value=f"{after_repairs:,}", inline=True)
+    embed.add_field(name="Item Value",  value=f"{lootsplit.item_value:,}",  inline=True)
+    embed.add_field(name="Silver",      value=f"{lootsplit.silver:,}",      inline=True)
+    embed.add_field(name="Repair Cost", value=f"{lootsplit.repair_cost:,}", inline=True)
+    embed.add_field(name="Value Before Taxes",     value=f"{after_repairs:,}", inline=True)
     embed.add_field(
         name=f"Guild Tax ({config.guild_tax_percent}%)",
-        value=f"{tax_amount:,}",
+        value=f"{guild_tax_amount:,}",
         inline=True,
     )
-
-    embed.add_field(name="💰 Total Payout", value=f"**{total_payout:,}**", inline=True)
-    embed.add_field(name="👥 Players", value=str(nb_players), inline=True)
     embed.add_field(
-        name="💎 Per Player",
-        value=f"**{per_player:,}**" if nb_players > 0 else "—",
+        name=f"Sale Tax ({config.lootsplit_sale_tax_percent}%)",
+        value=f"{sale_tax_amount:,}",
         inline=True,
     )
+    embed.add_field(name="Total Payout", value=f"**{total_payout:,}**",                          inline=True)
+    embed.add_field(name="Players",      value=str(nb_players),                                   inline=True)
+    embed.add_field(name="Per Player",   value=f"**{per_player:,}**" if nb_players > 0 else "—", inline=True)
 
     if lootsplit.players:
-        names = "\n".join(p.albion_character_name for p in lootsplit.players)
-        # Split into chunks if too long for one field (Discord field limit: 1024 chars)
-        chunks = _chunk_text(names, 1024)
+        names = "\n" + "\n".join(p.albion_character_name for p in lootsplit.players)
+        limit = 1024 - 6
+        chunks = []
+        while names:
+            if len(names) <= limit:
+                chunks.append(names)
+                break
+            split_at = names.rfind("\n", 0, limit)
+            if split_at == -1:
+                split_at = limit
+            chunks.append(names[:split_at])
+            names = names[split_at:].lstrip("\n")
+
         for i, chunk in enumerate(chunks):
-            label = "🧑‍🤝‍🧑 Players" if i == 0 else "🧑‍🤝‍🧑 Players (cont.)"
+            label = "Players" if i == 0 else "Players (cont.)"
             embed.add_field(name=label, value=f"```{chunk}```", inline=False)
 
     return embed
@@ -129,6 +134,13 @@ def _chunk_text(text: str, limit: int) -> list[str]:
     return chunks
 
 
+def _is_admin(interaction: discord.Interaction) -> bool:
+    return (
+        isinstance(interaction.user, discord.Member)
+        and interaction.user.guild_permissions.administrator
+    )
+
+
 class LootsplitView(discord.ui.View):
     def __init__(
         self,
@@ -143,36 +155,33 @@ class LootsplitView(discord.ui.View):
         self._update_buttons()
 
     def _update_buttons(self):
-        self.pay_players_button.disabled = (
-            self.lootsplit.paid_out or not self.lootsplit.players
-        )
-        self.add_players_button.disabled = self.lootsplit.paid_out
+        paid_out = self.lootsplit.paid_out
+        has_players = bool(self.lootsplit.players)
+
+        self.add_players_button.disabled = paid_out
+        self.edit_split_button.disabled  = paid_out
+        self.pay_players_button.disabled = paid_out or not has_players
+        self.reopen_split_button.disabled = not paid_out
 
     async def _refresh_panel(self, interaction: discord.Interaction):
         if not self.lootsplit.id:
-            raise Exception("lootsplit must have an ID here")
-
-        self.lootsplit = await self.database_manager.get_lootsplit_by_id(
-            self.lootsplit.id
-        )
+            raise Exception("Lootsplit must have an ID here")
+        self.lootsplit = await self.database_manager.get_lootsplit_by_id(self.lootsplit.id)
         self._update_buttons()
         embed = _build_lootsplit_embed(self.lootsplit)
         await interaction.message.edit(embed=embed, view=self)
 
-    @discord.ui.button(label="➕ Add Players", style=discord.ButtonStyle.primary)
+    # -------------------------------------------------------------------------
+    # Add Players
+    # -------------------------------------------------------------------------
+
+    @discord.ui.button(label="Add Players", style=discord.ButtonStyle.primary, row=0)
     async def add_players_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        if (
-            not isinstance(interaction.user, discord.Member)
-            or not interaction.user.guild_permissions.administrator
-        ):
+        if not _is_admin(interaction):
             await interaction.response.send_message("❌ Admins only.", ephemeral=True)
             return
-
-        if not self.lootsplit.id:
-            raise Exception("lootsplit must have an ID here")
-
         modal = AddPlayersModal(
             lootsplit_id=self.lootsplit.id,
             lootsplit_manager=self.lootsplit_manager,
@@ -180,38 +189,83 @@ class LootsplitView(discord.ui.View):
         )
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label="💰 Pay Players", style=discord.ButtonStyle.success)
+    # -------------------------------------------------------------------------
+    # Edit Split
+    # -------------------------------------------------------------------------
+
+    @discord.ui.button(label="Edit Split", style=discord.ButtonStyle.secondary, row=0)
+    async def edit_split_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        if not _is_admin(interaction):
+            await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+            return
+        modal = EditSplitModal(
+            lootsplit=self.lootsplit,
+            lootsplit_manager=self.lootsplit_manager,
+            database_manager=self.database_manager,
+            view=self,
+        )
+        await interaction.response.send_modal(modal)
+
+    # -------------------------------------------------------------------------
+    # Pay Players
+    # -------------------------------------------------------------------------
+
+    @discord.ui.button(label="Pay Players", style=discord.ButtonStyle.success, row=1)
     async def pay_players_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        if (
-            not isinstance(interaction.user, discord.Member)
-            or not interaction.user.guild_permissions.administrator
-        ):
+        if not _is_admin(interaction):
             await interaction.response.send_message("❌ Admins only.", ephemeral=True)
             return
 
         await interaction.response.defer()
 
         try:
-            if not self.lootsplit.id:
-                raise Exception("lootsplit must have an ID here")
             await self.lootsplit_manager.add_balances(lootsplit_id=self.lootsplit.id)
         except Exception as e:
             await interaction.followup.send(f"❌ {e}", ephemeral=True)
             return
 
-        await self._refresh_panel(interaction)
-
+        per_player = self.lootsplit_manager.get_lootsplit_value_per_player(self.lootsplit)
         nb_players = len(self.lootsplit.players)
-        per_player = self.lootsplit_manager.get_lootsplit_value_per_player(
-            self.lootsplit
-        )
+
+        await self._refresh_panel(interaction)
         await interaction.followup.send(
             f"✅ Paid out **{per_player:,}** silver to **{nb_players}** players.",
             ephemeral=True,
         )
 
+    # -------------------------------------------------------------------------
+    # Reopen Split
+    # -------------------------------------------------------------------------
+
+    @discord.ui.button(label="Reopen Split", style=discord.ButtonStyle.danger, row=1)
+    async def reopen_split_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        if not _is_admin(interaction):
+            await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        try:
+            await self.lootsplit_manager.reverse_balances(lootsplit_id=self.lootsplit.id)
+        except Exception as e:
+            await interaction.followup.send(f"❌ {e}", ephemeral=True)
+            return
+
+        await self._refresh_panel(interaction)
+        await interaction.followup.send(
+            "✅ Split reopened. Balances have been reversed.", ephemeral=True
+        )
+
+
+# -----------------------------------------------------------------------------
+# Add Players Modal
+# -----------------------------------------------------------------------------
 
 class AddPlayersModal(discord.ui.Modal, title="Add Players to Loot Split"):
     player_names = discord.ui.TextInput(
@@ -235,16 +289,9 @@ class AddPlayersModal(discord.ui.Modal, title="Add Players to Loot Split"):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        names = [
-            name.strip()
-            for name in self.player_names.value.splitlines()
-            if name.strip()
-        ]
-
+        names = [n.strip() for n in self.player_names.value.splitlines() if n.strip()]
         if not names:
-            await interaction.followup.send(
-                "❌ No valid names provided.", ephemeral=True
-            )
+            await interaction.followup.send("❌ No valid names provided.", ephemeral=True)
             return
 
         try:
@@ -253,12 +300,90 @@ class AddPlayersModal(discord.ui.Modal, title="Add Players to Loot Split"):
                 lootsplit_id=self.lootsplit_id,
             )
         except Exception as e:
-            await interaction.followup.send(
-                f"❌ Failed to add players: {e}", ephemeral=True
-            )
+            await interaction.followup.send(f"❌ Failed to add players: {e}", ephemeral=True)
             return
 
         await self.lootsplit_view._refresh_panel(interaction)
         await interaction.followup.send(
             f"✅ Added **{len(names)}** player(s) to the split.", ephemeral=True
         )
+
+
+# -----------------------------------------------------------------------------
+# Edit Split Modal
+# -----------------------------------------------------------------------------
+
+class EditSplitModal(discord.ui.Modal, title="Edit Loot Split"):
+    def __init__(
+        self,
+        lootsplit: Lootsplit,
+        lootsplit_manager: ILootsplitManager,
+        database_manager: IDatabaseManager,
+        view: LootsplitView,
+    ):
+        super().__init__()
+        self.lootsplit = lootsplit
+        self.lootsplit_manager = lootsplit_manager
+        self.database_manager = database_manager
+        self.lootsplit_view = view
+
+        # Pre-populate fields with current values
+        self.item_value = discord.ui.TextInput(
+            label="Item Value",
+            default=str(lootsplit.item_value),
+            required=True,
+        )
+        self.silver = discord.ui.TextInput(
+            label="Silver",
+            default=str(lootsplit.silver),
+            required=True,
+        )
+        self.repair_cost = discord.ui.TextInput(
+            label="Repair Cost",
+            default=str(lootsplit.repair_cost),
+            required=True,
+        )
+        self.player_names = discord.ui.TextInput(
+            label="Players (one per line, replaces current list)",
+            style=discord.TextStyle.paragraph,
+            default="\n".join(p.albion_character_name for p in lootsplit.players),
+            required=False,
+        )
+
+        self.add_item(self.item_value)
+        self.add_item(self.silver)
+        self.add_item(self.repair_cost)
+        self.add_item(self.player_names)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        # Validate numeric fields
+        try:
+            new_item_value  = int(self.item_value.value.strip().replace(",", ""))
+            new_silver      = int(self.silver.value.strip().replace(",", ""))
+            new_repair_cost = int(self.repair_cost.value.strip().replace(",", ""))
+        except ValueError:
+            await interaction.followup.send(
+                "❌ Item Value, Silver, and Repair Cost must all be integers.", ephemeral=True
+            )
+            return
+
+        self.lootsplit.item_value  = new_item_value
+        self.lootsplit.silver      = new_silver
+        self.lootsplit.repair_cost = new_repair_cost
+
+        # Update player list if provided
+        names = [n.strip() for n in self.player_names.value.splitlines() if n.strip()]
+        if names:
+            self.lootsplit.players = []
+            await self.database_manager.save_or_update_lootsplit(self.lootsplit)
+            await self.lootsplit_manager.add_players_by_name(
+                character_names=names,
+                lootsplit_id=self.lootsplit.id,
+            )
+        else:
+            await self.database_manager.save_or_update_lootsplit(self.lootsplit)
+
+        await self.lootsplit_view._refresh_panel(interaction)
+        await interaction.followup.send("✅ Loot split updated.", ephemeral=True)
