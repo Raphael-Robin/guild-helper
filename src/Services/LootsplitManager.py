@@ -14,9 +14,9 @@ class LootsplitManager(ILootsplitManager):
         self.economy_manager = economy_manager
 
     async def create_lootsplit(
-        self, item_value: int, silver: int, repair_cost: int
+        self, item_value: int, silver: int, repair_cost: int, guild_discord_id: str
     ) -> Lootsplit:
-        config = await self.configuration_manager.get_config()
+        config = await self.configuration_manager.get_config(guild_discord_id)
         return Lootsplit(
             configuration=config,
             players=[],
@@ -42,14 +42,14 @@ class LootsplitManager(ILootsplitManager):
         lootsplit = await self.database_manager.get_lootsplit_by_id(lootsplit_id=lootsplit_id)
         if lootsplit.paid_out:
             raise Exception("Lootsplit already paid out")
-        await self.economy_manager.add_balances(
-            albion_character_ids=[player.albion_character_id for player in lootsplit.players], 
-            amount=self.get_lootsplit_value_per_player(lootsplit=lootsplit))
+        amount = self.get_lootsplit_value_per_player(lootsplit=lootsplit)
+        albion_character_ids=[player.albion_character_id for player in lootsplit.players]
+        await self.economy_manager.add_balances(albion_character_ids=albion_character_ids, amount=amount)
         lootsplit.paid_out = True
         await self.database_manager.save_or_update_lootsplit(lootsplit=lootsplit)
 
     def get_lootsplit_value_total(self, lootsplit:Lootsplit) -> int:
-        return round((lootsplit.item_value + lootsplit.silver - lootsplit.repair_cost) * (lootsplit.configuration.guild_tax_percent / 100))
+        return round((lootsplit.item_value + lootsplit.silver - lootsplit.repair_cost) * (1 - lootsplit.configuration.guild_tax_percent / 100))
     
     def get_lootsplit_value_per_player(self, lootsplit: Lootsplit) -> int:
         total_value = self.get_lootsplit_value_total(lootsplit=lootsplit)

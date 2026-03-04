@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from src.Model import Player, Log, Lootsplit
+from src.Model import Player, Log, Lootsplit, Configuration
 
 
 class IDatabaseManager(ABC):
@@ -61,4 +61,12 @@ class IDatabaseManager(ABC):
 
     @abstractmethod
     async def get_or_create_players_from_characters(self, character_names: list[str]) -> list[Player]:
+        pass
+
+    @abstractmethod
+    async def get_configuration(self, guild_discord_server_id: str) -> Configuration:
+        pass
+    @abstractmethod
+
+    async def save_or_update_configuration(self, config: Configuration) -> None:
         pass

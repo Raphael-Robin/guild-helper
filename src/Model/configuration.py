@@ -17,4 +17,5 @@ class Configuration(BaseModel):
     # Lootsplit Config
     lootsplit_buyer_role_id: str | None = None
     guild_tax_percent: int = 0
+    lootsplit_sale_tax_percent: int = 0
     lootsplit_sale_timer_minutes: int = 0

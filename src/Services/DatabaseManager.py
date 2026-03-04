@@ -1,5 +1,5 @@
 from src.Interfaces import IDatabaseManager, IAlbionApiManager
-from src.Model import Player, Log, Lootsplit
+from src.Model import Player, Log, Lootsplit, Configuration
 from pymongo import AsyncMongoClient
 
 
@@ -164,3 +164,21 @@ class DatabaseManager(IDatabaseManager):
 
             players.append(player_list[0])
         return players
+    
+    async def get_configuration(self, guild_discord_server_id: str) -> Configuration:
+        document = await self.data_base["configurations"].find_one(
+            {"guild_discord_server_id": guild_discord_server_id}
+        )
+        if document is None:
+            # Bootstrap a fresh config for this server
+            config = Configuration(guild_discord_server_id=guild_discord_server_id)
+            await self.save_or_update_configuration(config)
+            return config
+        return Configuration.model_validate(document)
+
+    async def save_or_update_configuration(self, config: Configuration) -> None:
+        await self.data_base["configurations"].update_one(
+            {"guild_discord_server_id": config.guild_discord_server_id},
+            {"$set": config.model_dump()},
+            upsert=True,
+        )

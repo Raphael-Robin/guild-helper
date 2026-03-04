@@ -5,7 +5,7 @@ from src.Model import Player, Lootsplit
 class ILootsplitManager(ABC):
     @abstractmethod
     async def create_lootsplit(
-        self, item_value: int, silver: int, repair_cost: int
+        self, item_value: int, silver: int, repair_cost: int, guild_discord_id: str
     ) -> Lootsplit:
         pass
 

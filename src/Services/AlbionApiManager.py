@@ -21,15 +21,8 @@ class AlbionApiManager(IAlbionApiManager):
         )
 
     async def get_player_id_by_name(self, player_name: str) -> str:
-        query = f"{self.base_url}/search"
-        params = {"q": player_name}
-        response = self.session.get(query, params=params)
-        if response.status_code == 200:
-            data = response.json()
-            for p_data in data.get("players", []):
-                if p_data["Name"].lower() == player_name.lower():
-                    return p_data["Id"]
-        raise Exception()
+        player = await self.get_player_by_name(player_name=player_name)
+        return player.albion_character_id
 
     async def get_player_name_by_id(self, player_id: str) -> str:
         query = f"{self.base_url}/players/{player_id}"
@@ -73,7 +66,7 @@ class AlbionApiManager(IAlbionApiManager):
             return Alliance(
                 name=alliance_name, tag=alliance_tag, id=alliance_id, guilds=guilds
             )
-        raise Exception()
+        raise Exception(f"response.status_code: {response.status_code}")
 
     async def get_guild_alliance(self, guild: Guild) -> Alliance:
         query = f"{self.base_url}/guilds/{guild.id}"
@@ -82,4 +75,26 @@ class AlbionApiManager(IAlbionApiManager):
             data = response.json()
             alliance_id = data["AllianceId"]
             return await self.get_alliance_by_id(alliance_id=alliance_id)
+        raise Exception()
+
+    async def get_guild_by_name(self, guild_name: str) -> Guild:
+        query = f"{self.base_url}/search"
+        params = {"q": guild_name}
+        response = self.session.get(query, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            for p_data in data.get("guilds", []):
+                if p_data["Name"].lower() == guild_name.lower():
+                    return Guild.model_validate({"name": p_data["Name"],"id": p_data["Id"]})
+        raise Exception()
+    
+    async def get_player_by_name(self, player_name: str) -> Player:
+        query = f"{self.base_url}/search"
+        params = {"q": player_name}
+        response = self.session.get(query, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            for p_data in data.get("players", []):
+                if p_data["Name"].lower() == player_name.lower():
+                    return Player.model_validate({"albion_character_name" : p_data["Name"],"albion_character_id" : p_data["Id"],})
         raise Exception()

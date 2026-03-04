@@ -22,3 +22,11 @@ class IAlbionApiManager(ABC):
     @abstractmethod
     async def get_guild_alliance(self, guild: Guild) -> Alliance:
         pass
+
+    @abstractmethod
+    async def get_guild_by_name(self, guild_name: str) -> Guild:
+        pass
+
+    @abstractmethod
+    async def get_player_by_name(self, player_name: str) -> Player:
+        pass

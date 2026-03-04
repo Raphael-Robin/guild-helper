@@ -133,7 +133,7 @@ class EconomyCog(commands.Cog):
 
 
 def _build_leaderboard_embed(players: list[Player], page: int, alltime: bool) -> discord.Embed:
-    title = "🏆 All-Time Leaderboard" if alltime else "🏆 Leaderboard"
+    title = "All-Time Leaderboard" if alltime else "Leaderboard"
     balance_key = "all_time_balance" if alltime else "balance"
 
     embed = discord.Embed(title=title, color=discord.Color.gold())
@@ -142,19 +142,26 @@ def _build_leaderboard_embed(players: list[Player], page: int, alltime: bool) ->
         embed.description = "No players found."
         return embed
 
+    col_rank = 4
+    col_name = max(len(p.albion_character_name) for p in players)
+    col_name = max(col_name, len("Character"))
+    col_bal  = max(len(f"{getattr(p, balance_key):,}") for p in players)
+    col_bal  = max(col_bal, len("Balance"))
+
+    sep = f"{'-'*col_rank} {'-'*col_name} {'-'*col_bal}"
+
     table_lines = [
         "```",
-        f"{'#':<4} {'Character':<24} {'Balance':>14}",
-        f"{'-'*4} {'-'*24} {'-'*14}",
+        f"{'#':<{col_rank}} {'Character':<{col_name}} {'Balance':>{col_bal}}",
+        sep,
     ]
     for i, player in enumerate(players):
         rank = page * PAGE_SIZE + i + 1
         balance_value = getattr(player, balance_key)
-        medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(rank, f"{rank}.")
         table_lines.append(
-            f"{medal:<4} {player.albion_character_name:<24} {balance_value:>14,}"
+            f"{f'{rank}.':<{col_rank}} {player.albion_character_name:<{col_name}} {balance_value:>{col_bal},}"
         )
-    table_lines.append("```")
+    table_lines += [sep, "```"]
 
     embed.description = "\n".join(table_lines)
     embed.set_footer(text=f"Page {page + 1}")

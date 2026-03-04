@@ -31,6 +31,7 @@ class LootsplitCog(commands.Cog):
             item_value=item_value,
             silver=silver,
             repair_cost=repair_cost,
+            guild_discord_id=str(interaction.guild.id)
         )
         await self.database_manager.save_or_update_lootsplit(lootsplit)
 
@@ -74,7 +75,7 @@ def _build_lootsplit_embed(lootsplit: Lootsplit) -> discord.Embed:
     embed.add_field(name="After Repairs",  value=f"{after_repairs:,}", inline=True)
     embed.add_field(
         name=f"Guild Tax ({config.guild_tax_percent}%)",
-        value=f"-{tax_amount:,}",
+        value=f"{tax_amount:,}",
         inline=True,
     )
 

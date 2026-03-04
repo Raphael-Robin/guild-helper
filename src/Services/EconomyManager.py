@@ -20,7 +20,7 @@ class EconomyManager(IEconomyManager):
         return balance
 
     async def add_balances(self, albion_character_ids: list[str], amount: int) -> None:
-        if not amount > 0 or not albion_character_ids:
+        if amount <= 0 or not albion_character_ids:
             return
         for albion_character_id in albion_character_ids:
             player = (
@@ -32,7 +32,6 @@ class EconomyManager(IEconomyManager):
             if self.logger:
                 log = Log(player=player, action=Action.add, amount=amount)
                 await self.logger.log_economy(log=log)
-
         await self.database_manager.update_balances(albion_character_ids, amount=amount)
 
     async def remove_balance(self, discord_user_id: str, amount: int) -> None:

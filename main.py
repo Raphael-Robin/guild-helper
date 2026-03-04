@@ -18,7 +18,8 @@ def main():
     economy_manager = EconomyManager(database_manager=database_manager, logger=None)
     configuration_manager = ConfigurationManager(database_manager=database_manager)
     lootsplit_manager = LootsplitManager(configuration_manager=configuration_manager,database_manager=database_manager,economy_manager=economy_manager)
-    bot = create_bot(permission_manager, economy_manager=economy_manager,database_manager=database_manager, lootsplit_manager=lootsplit_manager)
+    configuration_manager = ConfigurationManager(database_manager=database_manager)
+    bot = create_bot(permission_manager, economy_manager=economy_manager,database_manager=database_manager, lootsplit_manager=lootsplit_manager, configuration_manager=configuration_manager,albion_api_manager=albion_api_manager)
     bot.run(os.environ["DISCORD_TOKEN"])
 
     

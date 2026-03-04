@@ -14,7 +14,9 @@ class PermissionManager(IPermissionManager):
     ) -> None:
 
         await self.database_manager.update_or_insert_player(
-            albion_character_name=albion_character_name, discord_user_id=discord_user_id
+            albion_character_id=await self.albion_api_manager.get_player_id_by_name(player_name=albion_character_name),
+            albion_character_name=albion_character_name, 
+            discord_user_id=discord_user_id
         )
 
     async def is_player_in_alliance(self, player: Player, alliance: Alliance) -> bool:
@@ -25,22 +27,28 @@ class PermissionManager(IPermissionManager):
         player_guild = self.albion_api_manager.get_player_guild(player=player)
         return player_guild == guild
 
-    async def get_character_info(self, albion_character_name: str) -> dict[str, str]:
-        player_id = await self.albion_api_manager.get_player_id_by_name(
-            albion_character_name
-        )
-        player = Player(
-            albion_character_id=player_id, albion_character_name=albion_character_name
-        )
-        guild = await self.albion_api_manager.get_player_guild(player=player)
-        alliance = await self.albion_api_manager.get_player_alliance(player=player)
+    async def get_character_info(self, character_name: str) -> dict | None:
+        try:
+            player = await self.albion_api_manager.get_player_by_name(character_name)
+        except Exception:
+            return None
+
+        try:
+            guild = await self.albion_api_manager.get_player_guild(player=player)
+        except Exception:
+            guild = None
+
+        try:
+            alliance = await self.albion_api_manager.get_player_alliance(player=player)
+        except Exception:
+            alliance = None  # Player has no alliance — perfectly normal
 
         return {
             "name": player.albion_character_name,
-            "guild": guild.name,
-            "alliance": alliance.name,
+            "guild": guild.name if guild else "N/A",
+            "alliance": alliance.name if alliance else "N/A",
         }
-
+    
     async def is_character_already_registered(self, albion_character_name: str) -> bool:
         players = (await self.database_manager.get_players(albion_character_name=albion_character_name))
         if not players:
