@@ -40,7 +40,8 @@ class EconomyManager(IEconomyManager):
 
         if not (amount < 0 or total_balance < amount):
             for player in players:
-                balance_to_remove = min(player.balance, amount)
+                balance_to_remove = max(min(player.balance, amount),0)
+
                 amount -= balance_to_remove
 
                 if self.logger:

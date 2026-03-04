@@ -110,13 +110,13 @@ class EconomyCog(commands.Cog):
 
         to_remove = amount if amount is not None else current_balance
 
-        if to_remove > current_balance:
+        if to_remove > current_balance or to_remove < 0:
             await interaction.followup.send(
                 f"❌ Cannot remove **{to_remove:,}** — {user.mention} only has **{current_balance:,}**.",
                 ephemeral=True,
             )
             return
-
+        
         await self.economy_manager.remove_balance(str(user.id), to_remove)
 
         new_balance = current_balance - to_remove
