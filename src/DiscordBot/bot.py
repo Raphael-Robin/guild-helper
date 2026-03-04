@@ -48,9 +48,7 @@ def create_bot(
             )
         )
 
-        dev_guild = discord.Object(id=554730364573188106)  # replace with your server ID
-        bot.tree.copy_global_to(guild=dev_guild)
-        await bot.tree.sync(guild=dev_guild)
+        await bot.tree.sync()
         print("Slash commands synced.")
 
     bot.setup_hook = setup_hook
