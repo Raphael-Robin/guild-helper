@@ -42,7 +42,7 @@ COMMANDS = {
         {
             "name": "/lootsplit",
             "usage": "/lootsplit item_value: <int> silver: <int> repair_cost: <int>",
-            "description": "[Admin] Create a new loot split panel. Use the buttons to add players, edit values, pay out, or reopen the split.",
+            "description": "[Admin] Create a new loot split panel. Buttons on the panel allow you to add players, edit values, sell the split, pay out, or reopen it.",
         },
     ],
     "Logs": [
@@ -59,8 +59,8 @@ COMMANDS = {
     ],
     "Configuration": [
         {
-            "name": "/config-view",
-            "usage": "/config-view",
+            "name": "/config view",
+            "usage": "/config view",
             "description": "[Admin] View the current server configuration.",
         },
         {
@@ -69,14 +69,19 @@ COMMANDS = {
             "description": "[Admin] Link this Discord server to an Albion Online guild.",
         },
         {
-            "name": "/config-set-roles",
-            "usage": "/config-set-roles [admin_role: @role] [member_role: @role] [ally_role: @role] [lootsplit_buyer_role: @role]",
+            "name": "/config roles",
+            "usage": "/config roles [admin_role: @role] [member_role: @role] [ally_role: @role] [lootsplit_buyer_role: @role]",
             "description": "[Admin] Configure server roles. All parameters are optional — only provided roles will be updated.",
         },
         {
-            "name": "/config-set-lootsplit",
-            "usage": "/config-set-lootsplit [guild_tax_percent: <int>] [sale_tax_percent: <int>] [sale_timer_minutes: <int>]",
-            "description": "[Admin] Configure lootsplit settings. All parameters are optional.",
+            "name": "/config lootsplit",
+            "usage": "/config lootsplit [guild_tax_percent: <int>] [sale_tax_percent: <int>] [sale_timer_minutes: <int>]",
+            "description": "[Admin] Configure lootsplit tax and timer settings. All parameters are optional.",
+        },
+        {
+            "name": "/config split-mode",
+            "usage": "/config split-mode guild_buys_split: <true|false>",
+            "description": "[Admin] Set whether the guild buys the split directly (true) or it goes to a player sale (false).",
         },
     ],
     "Help": [
@@ -116,7 +121,6 @@ def _build_help_embed(category: str, is_admin: bool) -> discord.Embed:
     for cmd in COMMANDS[category]:
         is_admin_command = cmd["description"].startswith("[Admin]")
 
-        # Hide admin commands from non-admins
         if is_admin_command and not is_admin:
             continue
 

@@ -19,3 +19,4 @@ class Configuration(BaseModel):
     guild_tax_percent: int = 0
     lootsplit_sale_tax_percent: int = 0
     lootsplit_sale_timer_minutes: int = 0
+    guild_buys_split: bool = True

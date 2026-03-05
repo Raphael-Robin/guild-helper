@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from src.Model import Player, Lootsplit
+from src.Model import Player, Lootsplit, SplitSale
 
 
 class ILootsplitManager(ABC):
@@ -29,4 +29,10 @@ class ILootsplitManager(ABC):
 
     @abstractmethod
     async def revert_balances(self, lootsplit_id: int) -> None:
+        pass
+
+    @abstractmethod
+    async def create_split_sale(
+        self, lootsplit_id: int, guild_discord_id: str
+    ) -> SplitSale:
         pass

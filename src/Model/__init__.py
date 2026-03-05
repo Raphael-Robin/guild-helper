@@ -5,10 +5,22 @@ from src.Model.log import Log
 from src.Model.action import Action
 from src.Model.guild import Guild
 from src.Model.alliance import Alliance
+from src.Model.split_sale import SplitSale
+
 
 Alliance.model_rebuild()
 Configuration.model_rebuild()
 Lootsplit.model_rebuild()
 Log.model_rebuild()
+SplitSale.model_rebuild()
 
-__all__ = ["Lootsplit", "Player", "Configuration", "Log", "Action", "Guild", "Alliance"]
+__all__ = [
+    "Lootsplit",
+    "Player",
+    "Configuration",
+    "Log",
+    "Action",
+    "Guild",
+    "Alliance",
+    "SplitSale",
+]

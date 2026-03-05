@@ -1,8 +1,10 @@
+import random
+from datetime import datetime, timezone
 import discord
-from discord import app_commands
+from discord import TextChannel, app_commands
 from discord.ext import commands
 from src.Interfaces import ILootsplitManager, IDatabaseManager
-from src.Model import Lootsplit
+from src.Model import Lootsplit, SplitSale
 
 
 class LootsplitCog(commands.Cog):
@@ -34,6 +36,9 @@ class LootsplitCog(commands.Cog):
     ):
         await interaction.response.defer()
 
+        if not interaction.guild:
+            raise Exception("Interation needs a guild here")
+
         lootsplit = await self.lootsplit_manager.create_lootsplit(
             item_value=item_value,
             silver=silver,
@@ -49,6 +54,7 @@ class LootsplitCog(commands.Cog):
         )
         message = await interaction.followup.send(embed=embed, view=view, wait=True)
         lootsplit.discord_message_id = str(message.id)
+        lootsplit.discord_channel_id = str(interaction.channel_id)
         view.lootsplit = lootsplit
         await self.database_manager.save_or_update_lootsplit(lootsplit)
 
@@ -60,6 +66,11 @@ class LootsplitCog(commands.Cog):
             await interaction.response.send_message(
                 "❌ You don't have permission to use this command.", ephemeral=True
             )
+
+
+# -----------------------------------------------------------------------------
+# Embed builders
+# -----------------------------------------------------------------------------
 
 
 def _build_lootsplit_embed(lootsplit: Lootsplit) -> discord.Embed:
@@ -126,6 +137,61 @@ def _build_lootsplit_embed(lootsplit: Lootsplit) -> discord.Embed:
     return embed
 
 
+def _build_sale_embed(sale: SplitSale, lootsplit: Lootsplit) -> discord.Embed:
+    config = lootsplit.configuration
+    gross = lootsplit.item_value + lootsplit.silver
+    after_repairs = gross - lootsplit.repair_cost
+    sale_tax_amount = round(after_repairs * (config.lootsplit_sale_tax_percent / 100))
+    guild_tax_amount = round(after_repairs * (config.guild_tax_percent / 100))
+    total_payout = after_repairs - sale_tax_amount - guild_tax_amount
+
+    if sale.ended and sale.winner_id:
+        color = discord.Color.green()
+        title = f"Split Sale #{lootsplit.id} — Sold!"
+    elif sale.ended:
+        color = discord.Color.red()
+        title = f"Split Sale #{lootsplit.id} — Ended (No Participants)"
+    else:
+        color = discord.Color.blurple()
+        title = f"Split Sale #{lootsplit.id} — Open"
+
+    embed = discord.Embed(title=title, color=color)
+
+    embed.add_field(name="Split Value", value=f"**{total_payout:,}**", inline=True)
+
+    if not sale.ended:
+        deadline_ts = int(sale.deadline.replace(tzinfo=timezone.utc).timestamp())
+        embed.add_field(name="Closing", value=f"<t:{deadline_ts}:R>", inline=False)
+
+    if sale.participants:
+        mentions = "\n".join(f"<@{uid}>" for uid in sale.participants)
+        embed.add_field(
+            name=f"Participants ({len(sale.participants)})",
+            value=mentions,
+            inline=False,
+        )
+    else:
+        embed.add_field(
+            name="Participants",
+            value="None yet — click Join to enter!",
+            inline=False,
+        )
+
+    if sale.ended and sale.winner_id:
+        embed.add_field(
+            name="Winner",
+            value=f"<@{sale.winner_id}> — please arrange payment of **{total_payout:,}** silver.",
+            inline=False,
+        )
+
+    return embed
+
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+
+
 def _chunk_text(text: str, limit: int) -> list[str]:
     chunks, current = [], []
     current_len = 0
@@ -147,6 +213,11 @@ def _is_admin(interaction: discord.Interaction) -> bool:
     )
 
 
+# -----------------------------------------------------------------------------
+# LootsplitView
+# -----------------------------------------------------------------------------
+
+
 class LootsplitView(discord.ui.View):
     def __init__(
         self,
@@ -162,13 +233,33 @@ class LootsplitView(discord.ui.View):
 
     def _update_buttons(self):
         if self.lootsplit is None:
-            return  # placeholder view registered at startup, no state to update
+            return
         paid_out = self.lootsplit.paid_out
         has_players = bool(self.lootsplit.players)
+        guild_buys = self.lootsplit.configuration.guild_buys_split
+
         self.add_players_button.disabled = paid_out
         self.edit_split_button.disabled = paid_out
-        self.pay_players_button.disabled = paid_out or not has_players
         self.reopen_split_button.disabled = not paid_out
+        self.pay_players_button.disabled = paid_out or not has_players
+        self.sell_split_button.disabled = paid_out or guild_buys
+
+    async def _load_lootsplit(self, interaction: discord.Interaction) -> bool:
+        if self.lootsplit is not None:
+            return True
+
+        if not interaction.message:
+            raise Exception("No message found")
+        lootsplit = await self.database_manager.get_lootsplit_by_message_id(
+            str(interaction.message.id)
+        )
+        if lootsplit is None:
+            await interaction.response.send_message(
+                "❌ Could not find this lootsplit in the database.", ephemeral=True
+            )
+            return False
+        self.lootsplit = lootsplit
+        return True
 
     async def _refresh_panel(self, interaction: discord.Interaction):
         if not self.lootsplit or not self.lootsplit.id:
@@ -178,6 +269,8 @@ class LootsplitView(discord.ui.View):
         )
         self._update_buttons()
         embed = _build_lootsplit_embed(self.lootsplit)
+        if not interaction.message:
+            raise Exception("No message found")
         await interaction.message.edit(embed=embed, view=self)
 
     # -------------------------------------------------------------------------
@@ -198,6 +291,9 @@ class LootsplitView(discord.ui.View):
             return
         if not await self._load_lootsplit(interaction):
             return
+
+        if not (self.lootsplit and self.lootsplit.id):
+            raise Exception("No lootsplit found")
         modal = AddPlayersModal(
             lootsplit_id=self.lootsplit.id,
             lootsplit_manager=self.lootsplit_manager,
@@ -223,6 +319,9 @@ class LootsplitView(discord.ui.View):
             return
         if not await self._load_lootsplit(interaction):
             return
+
+        if not self.lootsplit:
+            raise Exception("No message found")
         modal = EditSplitModal(
             lootsplit=self.lootsplit,
             lootsplit_manager=self.lootsplit_manager,
@@ -230,6 +329,65 @@ class LootsplitView(discord.ui.View):
             view=self,
         )
         await interaction.response.send_modal(modal)
+
+    # -------------------------------------------------------------------------
+    # Sell Split
+    # -------------------------------------------------------------------------
+
+    @discord.ui.button(
+        label="Sell Split",
+        style=discord.ButtonStyle.primary,
+        row=0,
+        custom_id="lootsplit:sell_split",
+    )
+    async def sell_split_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        if not _is_admin(interaction):
+            await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+            return
+        if not await self._load_lootsplit(interaction):
+            return
+
+        await interaction.response.defer()
+
+        if not (
+            self.lootsplit
+            and self.lootsplit.id
+            and interaction.guild
+            and interaction.guild.id
+        ):
+            raise Exception()
+        sale = await self.lootsplit_manager.create_split_sale(
+            lootsplit_id=self.lootsplit.id, guild_discord_id=str(interaction.guild.id)
+        )
+        sale_embed = _build_sale_embed(sale=sale, lootsplit=self.lootsplit)
+        sale_view = SplitSaleView(
+            lootsplit_manager=self.lootsplit_manager,
+            database_manager=self.database_manager,
+            sale=sale,
+            lootsplit=self.lootsplit,
+        )
+
+        # Mention buyer role if configured
+        buyer_role_id = self.lootsplit.configuration.lootsplit_buyer_role_id
+        content = f"<@&{buyer_role_id}>" if buyer_role_id else None
+
+        if not (
+            interaction.message
+            and interaction.channel
+            and isinstance(interaction.channel, TextChannel)
+        ):
+            raise Exception("No channel found")
+        message = await interaction.channel.send(
+            content=content, embed=sale_embed, view=sale_view
+        )
+        sale.discord_message_id = str(message.id)
+        sale_view.sale = sale
+        await self.database_manager.save_or_update_split_sale(sale)
+
+        self.sell_split_button.disabled = True
+        await interaction.message.edit(view=self)
 
     # -------------------------------------------------------------------------
     # Pay Players
@@ -253,9 +411,10 @@ class LootsplitView(discord.ui.View):
         await interaction.response.defer()
 
         try:
+            if not (self.lootsplit and self.lootsplit.id):
+                raise Exception("No message found")
             await self.lootsplit_manager.add_balances(lootsplit_id=self.lootsplit.id)
         except Exception as e:
-            raise e
             await interaction.followup.send(f"❌ {e}", ephemeral=True)
             return
 
@@ -273,6 +432,7 @@ class LootsplitView(discord.ui.View):
     # -------------------------------------------------------------------------
     # Reopen Split
     # -------------------------------------------------------------------------
+
     @discord.ui.button(
         label="Reopen Split",
         style=discord.ButtonStyle.danger,
@@ -291,6 +451,8 @@ class LootsplitView(discord.ui.View):
         await interaction.response.defer()
 
         try:
+            if not self.lootsplit or not self.lootsplit.id:
+                raise Exception("Lootsplit must have an ID here")
             await self.lootsplit_manager.revert_balances(lootsplit_id=self.lootsplit.id)
         except Exception as e:
             await interaction.followup.send(f"❌ {e}", ephemeral=True)
@@ -301,21 +463,201 @@ class LootsplitView(discord.ui.View):
             "✅ Split reopened. Balances have been reversed.", ephemeral=True
         )
 
-    async def _load_lootsplit(self, interaction: discord.Interaction) -> bool:
-        """Returns False if the lootsplit could not be found, signaling the handler to abort."""
-        if self.lootsplit is not None:
-            return True
-        # Bot restarted — rebind using the message ID
-        lootsplit = await self.database_manager.get_lootsplit_by_message_id(
+
+# -----------------------------------------------------------------------------
+# SplitSaleView
+# -----------------------------------------------------------------------------
+
+
+class SplitSaleView(discord.ui.View):
+    def __init__(
+        self,
+        lootsplit_manager: ILootsplitManager,
+        database_manager: IDatabaseManager,
+        sale: SplitSale | None,
+        lootsplit: Lootsplit | None,
+    ):
+        super().__init__(timeout=None)
+        self.lootsplit_manager = lootsplit_manager
+        self.database_manager = database_manager
+        self.sale = sale
+        self.lootsplit = lootsplit
+        self._update_buttons()
+
+    def _update_buttons(self):
+        if self.sale is None:
+            return
+        self.join_button.disabled = self.sale.ended
+        self.force_end_button.disabled = self.sale.ended
+
+    async def _load_state(self, interaction: discord.Interaction) -> bool:
+        if self.sale is None:
+            if not interaction.message:
+                raise Exception("No message found")
+            sale = await self.database_manager.get_split_sale_by_message_id(
+                str(interaction.message.id)
+            )
+            if sale is None:
+                await interaction.response.send_message(
+                    "❌ Could not find this sale in the database.", ephemeral=True
+                )
+                return False
+            self.sale = sale
+
+        if self.lootsplit is None:
+            self.lootsplit = await self.database_manager.get_lootsplit_by_id(
+                self.sale.lootsplit_id
+            )
+
+        return True
+
+    async def _refresh_sale_panel(self, interaction: discord.Interaction):
+
+        if not interaction.message:
+            raise Exception("No message found")
+        self.sale = await self.database_manager.get_split_sale_by_message_id(
             str(interaction.message.id)
         )
-        if lootsplit is None:
-            await interaction.response.send_message(
-                "❌ Could not find this lootsplit in the database.", ephemeral=True
+        if not self.sale:
+            raise Exception("No sale found")
+        self.lootsplit = await self.database_manager.get_lootsplit_by_id(
+            self.sale.lootsplit_id
+        )
+        self._update_buttons()
+        embed = _build_sale_embed(sale=self.sale, lootsplit=self.lootsplit)
+        await interaction.message.edit(embed=embed, view=self)
+
+    async def _end_sale(self, interaction: discord.Interaction):
+        if not self.sale or not self.lootsplit:
+            raise Exception("Sale or Lootsplit is None")
+        if self.sale.participants:
+            self.sale.winner_id = random.choice(self.sale.participants)
+        self.sale.ended = True
+        await self.database_manager.save_or_update_split_sale(self.sale)
+        await self._refresh_sale_panel(interaction)
+
+        config = self.lootsplit.configuration
+        gross = self.lootsplit.item_value + self.lootsplit.silver
+        after_repairs = gross - self.lootsplit.repair_cost
+        sale_tax = round(after_repairs * (config.lootsplit_sale_tax_percent / 100))
+        guild_tax = round(after_repairs * (config.guild_tax_percent / 100))
+        total_payout = after_repairs - sale_tax - guild_tax
+
+        if self.sale.winner_id:
+            await interaction.followup.send(
+                f"🎉 <@{self.sale.winner_id}> has been selected as the buyer! "
+                f"Please arrange payment of **{total_payout:,}** silver."
             )
-            return False
-        self.lootsplit = lootsplit
-        return True
+        else:
+            await interaction.followup.send(
+                "❌ Sale ended with no participants — no buyer selected."
+            )
+
+    async def _end_sale_from_task(self, message: discord.Message):
+        if not (self.sale and self.lootsplit):
+            raise Exception("Sale or lootsplit is none")
+        if self.sale.participants:
+            self.sale.winner_id = random.choice(self.sale.participants)
+        self.sale.ended = True
+        await self.database_manager.save_or_update_split_sale(self.sale)
+
+        self._update_buttons()
+        embed = _build_sale_embed(sale=self.sale, lootsplit=self.lootsplit)
+        await message.edit(embed=embed, view=self)
+
+        config = self.lootsplit.configuration
+        gross = self.lootsplit.item_value + self.lootsplit.silver
+        after_repairs = gross - self.lootsplit.repair_cost
+        sale_tax = round(after_repairs * (config.lootsplit_sale_tax_percent / 100))
+        guild_tax = round(after_repairs * (config.guild_tax_percent / 100))
+        total_payout = after_repairs - sale_tax - guild_tax
+
+        if self.sale.winner_id:
+            await message.channel.send(
+                f"🎉 <@{self.sale.winner_id}> has been selected as the buyer! "
+                f"Please arrange payment of **{total_payout:,}** silver."
+            )
+        else:
+            await message.channel.send(
+                "❌ Sale timer expired with no participants — no buyer selected."
+            )
+
+    # -------------------------------------------------------------------------
+    # Join Sale
+    # -------------------------------------------------------------------------
+
+    @discord.ui.button(
+        label="Join Sale",
+        style=discord.ButtonStyle.success,
+        row=0,
+        custom_id="splitsale:join",
+    )
+    async def join_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        if not await self._load_state(interaction):
+            return
+
+        # Check buyer role
+        if not self.lootsplit:
+            raise Exception("No lootsplit found")
+        config = self.lootsplit.configuration
+        if config.lootsplit_buyer_role_id:
+            buyer_role_id = int(config.lootsplit_buyer_role_id)
+            if not isinstance(interaction.user, discord.Member) or not any(
+                r.id == buyer_role_id for r in interaction.user.roles
+            ):
+                await interaction.response.send_message(
+                    "❌ You need the buyer role to join this sale.", ephemeral=True
+                )
+                return
+
+        user_id = str(interaction.user.id)
+        if not self.sale:
+            raise Exception("No sale found")
+        if user_id in self.sale.participants:
+            await interaction.response.send_message(
+                "❌ You have already joined this sale.", ephemeral=True
+            )
+            return
+
+        # Check if timer expired
+        deadline = self.sale.deadline
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+
+        if datetime.now(timezone.utc) >= deadline:
+            await interaction.response.defer()
+            await self._end_sale(interaction)
+            return
+
+        self.sale.participants.append(user_id)
+        await self.database_manager.save_or_update_split_sale(self.sale)
+
+        await interaction.response.defer()
+        await self._refresh_sale_panel(interaction)
+
+    # -------------------------------------------------------------------------
+    # Force End
+    # -------------------------------------------------------------------------
+
+    @discord.ui.button(
+        label="Force End",
+        style=discord.ButtonStyle.danger,
+        row=0,
+        custom_id="splitsale:force_end",
+    )
+    async def force_end_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        if not _is_admin(interaction):
+            await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+            return
+        if not await self._load_state(interaction):
+            return
+
+        await interaction.response.defer()
+        await self._end_sale(interaction)
 
 
 # -----------------------------------------------------------------------------
@@ -388,7 +730,6 @@ class EditSplitModal(discord.ui.Modal, title="Edit Loot Split"):
         self.database_manager = database_manager
         self.lootsplit_view = view
 
-        # Pre-populate fields with current values
         self.item_value = discord.ui.TextInput(
             label="Item Value",
             default=str(lootsplit.item_value),
@@ -419,7 +760,6 @@ class EditSplitModal(discord.ui.Modal, title="Edit Loot Split"):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        # Validate numeric fields
         try:
             new_item_value = int(self.item_value.value.strip().replace(",", ""))
             new_silver = int(self.silver.value.strip().replace(",", ""))
@@ -435,11 +775,18 @@ class EditSplitModal(discord.ui.Modal, title="Edit Loot Split"):
         self.lootsplit.silver = new_silver
         self.lootsplit.repair_cost = new_repair_cost
 
-        # Update player list if provided
+        if not self.lootsplit.guild_discord_id:
+            raise Exception("Lootsplit needs a guild discord id here")
+        self.lootsplit.configuration = await self.database_manager.get_configuration(
+            self.lootsplit.guild_discord_id
+        )
+
         names = [n.strip() for n in self.player_names.value.splitlines() if n.strip()]
         if names:
             self.lootsplit.players = []
             await self.database_manager.save_or_update_lootsplit(self.lootsplit)
+            if not self.lootsplit.id:
+                raise Exception("Lootsplit needs an id here")
             await self.lootsplit_manager.add_players_by_name(
                 character_names=names,
                 lootsplit_id=self.lootsplit.id,

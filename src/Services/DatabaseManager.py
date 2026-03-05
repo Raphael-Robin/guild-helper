@@ -1,6 +1,8 @@
+from datetime import datetime, timezone
+
 from src.Exceptions.player_not_found import PlayerNotFound
 from src.Interfaces import IDatabaseManager, IAlbionApiManager
-from src.Model import Player, Log, Lootsplit, Configuration
+from src.Model import Player, Log, Lootsplit, Configuration, SplitSale
 from pymongo import AsyncMongoClient
 
 
@@ -189,7 +191,6 @@ class DatabaseManager(IDatabaseManager):
             {"guild_discord_server_id": guild_discord_server_id}
         )
         if document is None:
-            # Bootstrap a fresh config for this server
             config = Configuration(guild_discord_server_id=guild_discord_server_id)
             await self.save_or_update_configuration(config)
             return config
@@ -229,3 +230,42 @@ class DatabaseManager(IDatabaseManager):
     async def get_all_logs(self) -> list[Log]:
         cursor = self.economy_logs.find({}).sort("created_at", -1)
         return [Log.model_validate(log) async for log in cursor]
+
+    async def save_or_update_split_sale(self, sale: SplitSale) -> None:
+        if sale.id is None:
+            sale.id = await self.get_next_sequence_value("split_sale_id")
+        data = sale.model_dump(by_alias=True, exclude_none=True)
+        await self.data_base["split_sales"].update_one(
+            {"_id": sale.id},
+            {"$set": data},
+            upsert=True,
+        )
+
+    async def get_split_sale_by_lootsplit_id(
+        self, lootsplit_id: int
+    ) -> SplitSale | None:
+        doc = await self.data_base["split_sales"].find_one(
+            {"lootsplit_id": lootsplit_id}
+        )
+        return SplitSale.model_validate(doc) if doc else None
+
+    async def get_split_sale_by_message_id(self, message_id: str) -> SplitSale | None:
+        doc = await self.data_base["split_sales"].find_one(
+            {"discord_message_id": message_id}
+        )
+        return SplitSale.model_validate(doc) if doc else None
+
+    async def get_expired_unended_sales(self) -> list[tuple[SplitSale, Lootsplit]]:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        cursor = self.data_base["split_sales"].find(
+            {
+                "ended": False,
+            }
+        )
+        results = []
+        async for doc in cursor:
+            sale = SplitSale.model_validate(doc)
+            if sale.deadline < now:
+                lootsplit = await self.get_lootsplit_by_id(sale.lootsplit_id)
+                results.append((sale, lootsplit))
+        return results

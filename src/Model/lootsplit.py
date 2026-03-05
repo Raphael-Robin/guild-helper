@@ -14,3 +14,5 @@ class Lootsplit(BaseModel):
     repair_cost: int
     paid_out: bool = False
     discord_message_id: str | None = None
+    guild_discord_id: str | None = None
+    discord_channel_id: str | None = None

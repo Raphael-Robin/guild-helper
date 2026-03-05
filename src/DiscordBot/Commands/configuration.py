@@ -5,6 +5,11 @@ from src.Interfaces import IConfigurationManager, IAlbionApiManager
 from src.Model import Configuration, Guild
 
 
+config_group = app_commands.Group(
+    name="config", description="[Admin] Server configuration commands."
+)
+
+
 class ConfigurationCog(commands.Cog):
     def __init__(
         self,
@@ -16,8 +21,12 @@ class ConfigurationCog(commands.Cog):
         self.configuration_manager = configuration_manager
         self.albion_api_manager = albion_api_manager
 
+    config_group = app_commands.Group(
+        name="config", description="[Admin] Server configuration commands."
+    )
+
     # -------------------------------------------------------------------------
-    # Helper
+    # Helpers
     # -------------------------------------------------------------------------
 
     async def _get_config(self, interaction: discord.Interaction) -> Configuration:
@@ -27,11 +36,11 @@ class ConfigurationCog(commands.Cog):
         await self.configuration_manager.update_config(config)
 
     # -------------------------------------------------------------------------
-    # /config-view
+    # /config view
     # -------------------------------------------------------------------------
 
-    @app_commands.command(
-        name="config-view", description="[Admin] View the current server configuration."
+    @config_group.command(
+        name="view", description="[Admin] View the current server configuration."
     )
     @app_commands.checks.has_permissions(administrator=True)
     async def config_view(self, interaction: discord.Interaction):
@@ -41,7 +50,7 @@ class ConfigurationCog(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     # -------------------------------------------------------------------------
-    # /config-set-guild
+    # /config-set-guild (standalone — special case)
     # -------------------------------------------------------------------------
 
     @app_commands.command(
@@ -71,12 +80,10 @@ class ConfigurationCog(commands.Cog):
         )
 
     # -------------------------------------------------------------------------
-    # /config-set-roles
+    # /config roles
     # -------------------------------------------------------------------------
 
-    @app_commands.command(
-        name="config-set-roles", description="[Admin] Configure server roles."
-    )
+    @config_group.command(name="roles", description="[Admin] Configure server roles.")
     @app_commands.describe(
         admin_role="The admin role",
         member_role="The guild member role",
@@ -84,7 +91,7 @@ class ConfigurationCog(commands.Cog):
         lootsplit_buyer_role="The lootsplit buyer role",
     )
     @app_commands.checks.has_permissions(administrator=True)
-    async def config_set_roles(
+    async def config_roles(
         self,
         interaction: discord.Interaction,
         admin_role: discord.Role | None = None,
@@ -128,11 +135,11 @@ class ConfigurationCog(commands.Cog):
         )
 
     # -------------------------------------------------------------------------
-    # /config-set-lootsplit
+    # /config lootsplit
     # -------------------------------------------------------------------------
 
-    @app_commands.command(
-        name="config-set-lootsplit", description="[Admin] Configure lootsplit settings."
+    @config_group.command(
+        name="lootsplit", description="[Admin] Configure lootsplit settings."
     )
     @app_commands.describe(
         guild_tax_percent="Guild tax percentage (0–100)",
@@ -140,7 +147,7 @@ class ConfigurationCog(commands.Cog):
         sale_timer_minutes="Minutes players have to sell items",
     )
     @app_commands.checks.has_permissions(administrator=True)
-    async def config_set_lootsplit(
+    async def config_lootsplit(
         self,
         interaction: discord.Interaction,
         guild_tax_percent: int | None = None,
@@ -195,13 +202,45 @@ class ConfigurationCog(commands.Cog):
         )
 
     # -------------------------------------------------------------------------
-    # Error handlers
+    # /config split-mode
+    # -------------------------------------------------------------------------
+
+    @config_group.command(
+        name="split-mode", description="[Admin] Configure how loot splits are handled."
+    )
+    @app_commands.describe(
+        guild_buys_split="If true, the guild buys the split directly. If false, it goes to a player sale.",
+    )
+    @app_commands.checks.has_permissions(administrator=True)
+    async def config_split_mode(
+        self,
+        interaction: discord.Interaction,
+        guild_buys_split: bool,
+    ):
+        await interaction.response.defer(ephemeral=True)
+
+        config = await self._get_config(interaction)
+        config.guild_buys_split = guild_buys_split
+        await self._save_config(config)
+
+        mode = (
+            "Guild buys split directly"
+            if guild_buys_split
+            else "Split goes to player sale"
+        )
+        await interaction.followup.send(
+            f"✅ Split mode updated: **{mode}**.", ephemeral=True
+        )
+
+    # -------------------------------------------------------------------------
+    # Error handler
     # -------------------------------------------------------------------------
 
     @config_view.error
     @config_set_guild.error
-    @config_set_roles.error
-    @config_set_lootsplit.error
+    @config_roles.error
+    @config_lootsplit.error
+    @config_split_mode.error
     async def config_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
     ):
@@ -219,7 +258,6 @@ def _build_config_embed(
         color=discord.Color.blurple(),
     )
 
-    # Guild linkage
     if config.guild:
         embed.add_field(
             name="🏰 Albion Guild",
@@ -233,7 +271,6 @@ def _build_config_embed(
             inline=False,
         )
 
-    # Roles
     def role_str(role_id: str | None) -> str:
         if not role_id:
             return "Not set"
@@ -253,13 +290,18 @@ def _build_config_embed(
         value=role_str(config.lootsplit_buyer_role_id),
         inline=True,
     )
-
-    # Lootsplit settings
     embed.add_field(
         name="🏦 Guild Tax", value=f"{config.guild_tax_percent}%", inline=True
     )
     embed.add_field(
         name="💸 Sale Tax", value=f"{config.lootsplit_sale_tax_percent}%", inline=True
+    )
+    embed.add_field(
+        name="⚙️ Split Mode",
+        value="Guild buys directly"
+        if config.guild_buys_split
+        else "Goes to player sale",
+        inline=True,
     )
     embed.add_field(
         name="⏱️ Sale Timer",

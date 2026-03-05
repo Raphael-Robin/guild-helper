@@ -1,10 +1,12 @@
+from datetime import datetime, timedelta, timezone
+
 from src.Interfaces import (
     ILootsplitManager,
     IConfigurationManager,
     IDatabaseManager,
     IEconomyManager,
 )
-from src.Model import Player, Lootsplit
+from src.Model import Player, Lootsplit, SplitSale
 
 
 class LootsplitManager(ILootsplitManager):
@@ -28,6 +30,7 @@ class LootsplitManager(ILootsplitManager):
             item_value=item_value,
             silver=silver,
             repair_cost=repair_cost,
+            guild_discord_id=guild_discord_id,
         )
 
     async def add_players_by_name(
@@ -39,6 +42,11 @@ class LootsplitManager(ILootsplitManager):
         lootsplit = await self.database_manager.get_lootsplit_by_id(
             lootsplit_id=lootsplit_id
         )
+        if not lootsplit.guild_discord_id:
+            raise Exception("Lootsplits Guild discord id should not be none here")
+        lootsplit.configuration = await self.configuration_manager.get_config(
+            guild_discord_server_id=lootsplit.guild_discord_id
+        )
         lootsplit.players.extend(
             [player for player in players if player not in lootsplit.players]
         )
@@ -47,6 +55,11 @@ class LootsplitManager(ILootsplitManager):
     async def add_players(self, players: list[Player], lootsplit_id: int) -> None:
         lootsplit = await self.database_manager.get_lootsplit_by_id(
             lootsplit_id=lootsplit_id
+        )
+        if not lootsplit.guild_discord_id:
+            raise Exception("Lootsplits Guild discord id should not be none here")
+        lootsplit.configuration = await self.configuration_manager.get_config(
+            guild_discord_server_id=lootsplit.guild_discord_id
         )
         lootsplit.players.extend(
             [player for player in players if player not in lootsplit.players]
@@ -95,3 +108,14 @@ class LootsplitManager(ILootsplitManager):
         )
         lootsplit.paid_out = False
         await self.database_manager.save_or_update_lootsplit(lootsplit=lootsplit)
+
+    async def create_split_sale(
+        self, lootsplit_id: int, guild_discord_id: str
+    ) -> SplitSale:
+        config = await self.configuration_manager.get_config(guild_discord_id)
+        deadline = datetime.now(timezone.utc) + timedelta(
+            minutes=config.lootsplit_sale_timer_minutes
+        )
+        sale = SplitSale(lootsplit_id=lootsplit_id, deadline=deadline)
+        await self.database_manager.save_or_update_split_sale(sale)
+        return sale
