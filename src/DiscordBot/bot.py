@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from src.DiscordBot.Commands.help import HelpCog
 from src.DiscordBot.Commands.logs import LogsCog
 from src.DiscordBot.Commands.register import ConfirmRegistrationView, RegistrationCog
 from src.DiscordBot.Commands.economy import EconomyCog, LeaderboardView
@@ -25,7 +26,7 @@ def create_bot(
 ) -> commands.Bot:
 
     intents = discord.Intents.default()
-    bot = commands.Bot(command_prefix="!", intents=intents)
+    bot = commands.Bot(command_prefix="/", intents=intents)
 
     async def setup_hook():
         bot.add_view(
@@ -68,10 +69,12 @@ def create_bot(
             )
         )
         await bot.add_cog(LogsCog(bot, database_manager))
+        await bot.add_cog(HelpCog(bot))
 
-        dev_guild = discord.Object(id=554730364573188106)
-        bot.tree.copy_global_to(guild=dev_guild)
-        await bot.tree.sync(guild=dev_guild)
+        # dev_guild = discord.Object(id=554730364573188106)
+        # bot.tree.copy_global_to(guild=dev_guild)
+        # await bot.tree.sync(guild=dev_guild)
+        await bot.tree.sync()
         print("Slash commands synced.")
 
     @bot.event
