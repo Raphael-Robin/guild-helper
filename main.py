@@ -7,6 +7,7 @@ from src.Services import (
     EconomyManager,
     LootsplitManager,
     ConfigurationManager,
+    LogManager,
 )
 from src.DiscordBot.bot import create_bot
 
@@ -22,7 +23,10 @@ def main():
         database_manager=database_manager, albion_api_manager=albion_api_manager
     )
     # log_manager = LogManager(database_manager=database_manager)
-    economy_manager = EconomyManager(database_manager=database_manager, logger=None)
+    log_manager = LogManager(database_manager=database_manager)
+    economy_manager = EconomyManager(
+        database_manager=database_manager, log_manager=log_manager
+    )
     configuration_manager = ConfigurationManager(database_manager=database_manager)
     lootsplit_manager = LootsplitManager(
         configuration_manager=configuration_manager,

@@ -255,6 +255,7 @@ class LootsplitView(discord.ui.View):
         try:
             await self.lootsplit_manager.add_balances(lootsplit_id=self.lootsplit.id)
         except Exception as e:
+            raise e
             await interaction.followup.send(f"❌ {e}", ephemeral=True)
             return
 

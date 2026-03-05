@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from src.DiscordBot.Commands.logs import LogsCog
 from src.DiscordBot.Commands.register import ConfirmRegistrationView, RegistrationCog
 from src.DiscordBot.Commands.economy import EconomyCog, LeaderboardView
 from src.DiscordBot.Commands.lootsplits import LootsplitCog, LootsplitView
@@ -66,6 +67,7 @@ def create_bot(
                 albion_api_manager,
             )
         )
+        await bot.add_cog(LogsCog(bot, database_manager))
 
         dev_guild = discord.Object(id=554730364573188106)
         bot.tree.copy_global_to(guild=dev_guild)

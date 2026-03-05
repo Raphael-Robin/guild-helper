@@ -3,6 +3,6 @@ from enum import Enum
 
 class Action(Enum):
     add = "add"
-    substract = "substract"
+    remove = "remove"
     transfer = "transfer"
     revert = "revert"

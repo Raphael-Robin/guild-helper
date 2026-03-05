@@ -4,9 +4,9 @@ from src.Model import Player, Log, Action
 
 class EconomyManager(IEconomyManager):
     def __init__(
-        self, database_manager: IDatabaseManager, logger: ILogManager | None = None
+        self, database_manager: IDatabaseManager, log_manager: ILogManager | None = None
     ) -> None:
-        self.logger = logger
+        self.logger = log_manager
         self.database_manager = database_manager
 
     async def get_balance(self, discord_user_id: str) -> int:
@@ -60,7 +60,9 @@ class EconomyManager(IEconomyManager):
                 amount -= balance_to_remove
 
                 if self.logger:
-                    log = Log(player=player, action=Action.add, amount=amount)
+                    log = Log(
+                        player=player, action=Action.remove, amount=-balance_to_remove
+                    )
                     await self.logger.log_economy(log=log)
 
                 await self.database_manager.update_balance(

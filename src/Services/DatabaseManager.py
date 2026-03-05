@@ -125,7 +125,7 @@ class DatabaseManager(IDatabaseManager):
         return players
 
     async def save_economy_log(self, log: Log) -> None:
-        await self.economy_logs.insert_one(log)
+        await self.economy_logs.insert_one(log.model_dump(mode="json"))
 
     async def get_lootsplit_by_id(self, lootsplit_id: int) -> Lootsplit:
         document = await self.lootsplits.find_one({"_id": lootsplit_id})
@@ -207,3 +207,25 @@ class DatabaseManager(IDatabaseManager):
         if document is None:
             return None
         return Lootsplit.model_validate(document)
+
+    async def get_logs_for_character(
+        self, albion_character_name: str, limit: int, offset: int
+    ) -> list[Log]:
+        cursor = (
+            self.economy_logs.find(
+                {
+                    "player.albion_character_name": {
+                        "$regex": f"^{albion_character_name}$",
+                        "$options": "i",
+                    }
+                }
+            )
+            .sort("created_at", -1)
+            .skip(offset)
+            .limit(limit)
+        )
+        return [Log.model_validate(log) async for log in cursor]
+
+    async def get_all_logs(self) -> list[Log]:
+        cursor = self.economy_logs.find({}).sort("created_at", -1)
+        return [Log.model_validate(log) async for log in cursor]

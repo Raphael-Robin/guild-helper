@@ -82,3 +82,13 @@ class IDatabaseManager(ABC):
     @abstractmethod
     async def get_lootsplit_by_message_id(self, message_id: str) -> Lootsplit | None:
         pass
+
+    @abstractmethod
+    async def get_logs_for_character(
+        self, albion_character_name: str, limit: int, offset: int
+    ) -> list[Log]:
+        pass
+
+    @abstractmethod
+    async def get_all_logs(self) -> list[Log]:
+        pass
