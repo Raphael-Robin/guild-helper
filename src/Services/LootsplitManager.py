@@ -89,9 +89,19 @@ class LootsplitManager(ILootsplitManager):
         )
 
     def get_lootsplit_value_per_player(self, lootsplit: Lootsplit) -> int:
-        total_value = self.get_lootsplit_value_total(lootsplit=lootsplit)
+        gross = lootsplit.item_value + lootsplit.silver
+        after_repairs = gross - lootsplit.repair_cost
+        sale_tax_amount = round(
+            after_repairs * (lootsplit.configuration.lootsplit_sale_tax_percent / 100)
+        )
+        guild_tax_amount = round(
+            after_repairs * (lootsplit.configuration.guild_tax_percent / 100)
+        )
+        after_taxes = after_repairs - sale_tax_amount - guild_tax_amount
+        total_payout = after_taxes
         nb_players = len(lootsplit.players)
-        return round(total_value / nb_players)
+        per_player = round(total_payout / nb_players) if nb_players > 0 else 0
+        return per_player
 
     async def revert_balances(self, lootsplit_id: int) -> None:
         lootsplit = await self.database_manager.get_lootsplit_by_id(
