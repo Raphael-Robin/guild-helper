@@ -32,6 +32,21 @@ class EconomyManager(IEconomyManager):
                 await self.logger.log_economy(log=log)
         await self.database_manager.update_balances(albion_character_ids, amount=amount)
 
+    async def revert_balances(
+        self, albion_character_ids: list[str], amount: int
+    ) -> None:
+        for albion_character_id in albion_character_ids:
+            player = (
+                await self.database_manager.get_players(
+                    albion_character_id=albion_character_id
+                )
+            )[0]
+
+            if self.logger:
+                log = Log(player=player, action=Action.revert, amount=amount)
+                await self.logger.log_economy(log=log)
+        await self.database_manager.revert_balances(albion_character_ids, amount=amount)
+
     async def remove_balance(self, discord_user_id: str, amount: int) -> None:
         players = await self.database_manager.get_players(
             discord_user_id=discord_user_id
@@ -40,7 +55,7 @@ class EconomyManager(IEconomyManager):
 
         if not (amount < 0 or total_balance < amount):
             for player in players:
-                balance_to_remove = max(min(player.balance, amount),0)
+                balance_to_remove = max(min(player.balance, amount), 0)
 
                 amount -= balance_to_remove
 

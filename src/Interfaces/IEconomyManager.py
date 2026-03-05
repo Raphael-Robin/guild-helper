@@ -12,6 +12,12 @@ class IEconomyManager(ABC):
         pass
 
     @abstractmethod
+    async def revert_balances(
+        self, albion_character_ids: list[str], amount: int
+    ) -> None:
+        pass
+
+    @abstractmethod
     async def remove_balance(self, discord_user_id: str, amount: int) -> None:
         pass
 

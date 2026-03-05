@@ -290,9 +290,7 @@ class LootsplitView(discord.ui.View):
         await interaction.response.defer()
 
         try:
-            await self.lootsplit_manager.reverse_balances(
-                lootsplit_id=self.lootsplit.id
-            )
+            await self.lootsplit_manager.revert_balances(lootsplit_id=self.lootsplit.id)
         except Exception as e:
             await interaction.followup.send(f"❌ {e}", ephemeral=True)
             return

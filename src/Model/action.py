@@ -5,3 +5,4 @@ class Action(Enum):
     add = "add"
     substract = "substract"
     transfer = "transfer"
+    revert = "revert"

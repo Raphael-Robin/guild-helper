@@ -80,13 +80,17 @@ class LootsplitManager(ILootsplitManager):
         nb_players = len(lootsplit.players)
         return round(total_value / nb_players)
 
-    async def reverse_balances(self, lootsplit_id: int) -> None:
-        lootsplit = await self.database_manager.get_lootsplit_by_id(lootsplit_id=lootsplit_id)
+    async def revert_balances(self, lootsplit_id: int) -> None:
+        lootsplit = await self.database_manager.get_lootsplit_by_id(
+            lootsplit_id=lootsplit_id
+        )
         if not lootsplit.paid_out:
             raise Exception("Lootsplit has not been paid out yet")
         amount_to_reverse = self.get_lootsplit_value_per_player(lootsplit=lootsplit)
-        await self.economy_manager.add_balances(
-            albion_character_ids=[player.albion_character_id for player in lootsplit.players],
+        await self.economy_manager.revert_balances(
+            albion_character_ids=[
+                player.albion_character_id for player in lootsplit.players
+            ],
             amount=-amount_to_reverse,
         )
         lootsplit.paid_out = False

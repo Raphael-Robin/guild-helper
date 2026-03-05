@@ -63,6 +63,13 @@ class DatabaseManager(IDatabaseManager):
 
         await self.players.update_many(filter=query, update=update)
 
+    async def revert_balances(
+        self, albion_character_id: list[str], amount: int
+    ) -> None:
+        query = {"albion_character_id": {"$in": albion_character_id}}
+        update = {"$inc": {"balance": amount, "all_time_balance": amount}}
+        await self.players.update_many(filter=query, update=update)
+
     async def get_players(
         self,
         discord_user_id: str | None = None,

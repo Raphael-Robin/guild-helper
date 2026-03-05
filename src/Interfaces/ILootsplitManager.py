@@ -28,5 +28,5 @@ class ILootsplitManager(ABC):
         pass
 
     @abstractmethod
-    async def reverse_balances(self, lootsplit_id: int) -> None:
+    async def revert_balances(self, lootsplit_id: int) -> None:
         pass
