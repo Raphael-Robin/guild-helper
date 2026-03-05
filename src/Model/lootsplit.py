@@ -13,3 +13,4 @@ class Lootsplit(BaseModel):
     silver: int
     repair_cost: int
     paid_out: bool = False
+    discord_message_id: str | None = None

@@ -1,3 +1,4 @@
+from src.Exceptions.player_not_found import PlayerNotFound
 from src.Interfaces import IAlbionApiManager
 from src.Model import Player, Guild, Alliance
 import requests
@@ -98,11 +99,10 @@ class AlbionApiManager(IAlbionApiManager):
             data = response.json()
             for p_data in data.get("players", []):
                 if p_data["Name"].lower() == player_name.lower():
-                    print(p_data, flush=True)
                     return Player.model_validate(
                         {
                             "albion_character_name": p_data["Name"],
                             "albion_character_id": p_data["Id"],
                         }
                     )
-        raise Exception()
+        raise PlayerNotFound(player_name)

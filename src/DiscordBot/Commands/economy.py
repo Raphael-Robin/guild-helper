@@ -116,7 +116,7 @@ class EconomyCog(commands.Cog):
                 ephemeral=True,
             )
             return
-        
+
         await self.economy_manager.remove_balance(str(user.id), to_remove)
 
         new_balance = current_balance - to_remove
@@ -205,7 +205,7 @@ def _build_leaderboard_embed(
 
 class LeaderboardView(discord.ui.View):
     def __init__(self, economy_manager: IEconomyManager, page: int, alltime: bool):
-        super().__init__(timeout=120)
+        super().__init__(timeout=None)
         self.economy_manager = economy_manager
         self.page = page
         self.alltime = alltime
@@ -214,14 +214,22 @@ class LeaderboardView(discord.ui.View):
     def _update_buttons(self):
         self.prev_button.disabled = self.page == 0
 
-    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        label="◀ Prev",
+        style=discord.ButtonStyle.secondary,
+        custom_id="leaderboard:prev",
+    )
     async def prev_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         self.page -= 1
         await self.update_leaderboard(interaction)
 
-    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        label="Next ▶",
+        style=discord.ButtonStyle.secondary,
+        custom_id="leaderboard:next",
+    )
     async def next_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):

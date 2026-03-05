@@ -72,3 +72,7 @@ class IDatabaseManager(ABC):
     @abstractmethod
     async def save_or_update_configuration(self, config: Configuration) -> None:
         pass
+
+    @abstractmethod
+    async def get_lootsplit_by_message_id(self, message_id: str) -> Lootsplit | None:
+        pass

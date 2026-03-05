@@ -1,3 +1,4 @@
+from src.Exceptions.player_not_found import PlayerNotFound
 from src.Interfaces import IDatabaseManager, IAlbionApiManager
 from src.Model import Player, Log, Lootsplit, Configuration
 from pymongo import AsyncMongoClient
@@ -73,7 +74,12 @@ class DatabaseManager(IDatabaseManager):
             raise Exception("You need to provide at least one identifying information")
 
         if albion_character_name:
-            filter = {"albion_character_name": albion_character_name}
+            filter = {
+                "albion_character_name": {
+                    "$regex": f"^{albion_character_name}$",
+                    "$options": "i",
+                }
+            }
         elif albion_character_id:
             filter = {"albion_character_id": albion_character_id}
         else:
@@ -165,8 +171,10 @@ class DatabaseManager(IDatabaseManager):
                     albion_character_name=name,
                 )
                 player_list = await self.get_players(albion_character_name=name)
-
-            players.append(player_list[0])
+            if player_list:
+                players.append(player_list[0])
+            else:
+                raise PlayerNotFound(name)
         return players
 
     async def get_configuration(self, guild_discord_server_id: str) -> Configuration:
@@ -186,3 +194,9 @@ class DatabaseManager(IDatabaseManager):
             {"$set": config.model_dump()},
             upsert=True,
         )
+
+    async def get_lootsplit_by_message_id(self, message_id: str) -> Lootsplit | None:
+        document = await self.lootsplits.find_one({"discord_message_id": message_id})
+        if document is None:
+            return None
+        return Lootsplit.model_validate(document)

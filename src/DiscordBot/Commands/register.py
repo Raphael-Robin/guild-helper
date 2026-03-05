@@ -125,14 +125,18 @@ class ConfirmRegistrationView(discord.ui.View):
         force: bool = False,
         target_user: discord.Member | None = None,
     ):
-        super().__init__(timeout=60)
+        super().__init__(timeout=None)
         self.discord_user_id = discord_user_id
         self.character_name = character_name
         self.permission_manager = permission_manager
         self.force = force
         self.target_user = target_user
 
-    @discord.ui.button(label="✅ Confirm", style=discord.ButtonStyle.success)
+    @discord.ui.button(
+        label="✅ Confirm",
+        style=discord.ButtonStyle.success,
+        custom_id="registration:confirm",
+    )
     async def confirm(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -150,7 +154,11 @@ class ConfirmRegistrationView(discord.ui.View):
             view=self,
         )
 
-    @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.danger)
+    @discord.ui.button(
+        label="❌ Cancel",
+        style=discord.ButtonStyle.danger,
+        custom_id="registration:cancel",
+    )
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.clear_items()
         await interaction.response.edit_message(
