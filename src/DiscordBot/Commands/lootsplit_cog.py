@@ -641,14 +641,13 @@ class LootsplitView(discord.ui.View):
             self.lootsplit
             and self.lootsplit.id
             and interaction.channel
-            and isinstance(interaction.channel, TextChannel)
             and interaction.message
             and interaction.guild
         ):
             raise Exception("Missing lootsplit, id, or channel")
 
         min_bid = _compute_auction_min_bid(self.lootsplit)
-
+        
         config = await self.configuration_manager.get_config(str(interaction.guild.id))
 
         deadline = datetime.now(timezone.utc) + timedelta(

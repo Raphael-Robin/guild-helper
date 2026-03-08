@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv(".env")
 
-GUILD_ID = 554730364573188106
+GUILD_ID = 1477767599637925970
 
 
 async def clear_commands():

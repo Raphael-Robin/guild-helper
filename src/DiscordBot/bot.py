@@ -23,6 +23,7 @@ from src.Interfaces import (
     IConfigurationManager,
     IAlbionApiManager,
 )
+from src.utils.logger import logger
 
 
 
@@ -152,16 +153,14 @@ def create_bot(
             bot.tree.copy_global_to(guild=dev_guild)
             await bot.tree.sync(guild=dev_guild)
         else:
-            dev_guild = discord.Object(id=1477767599637925970)
-            bot.tree.clear_commands(guild=dev_guild)
-            await bot.tree.sync(guild=dev_guild)
-        print("Slash commands synced.")
+            await bot.tree.sync()
+        logger.info("Slash commands synced.")
 
         check_expired_sales.start()
 
     @bot.event
     async def on_ready():
-        print(f"Logged in as {bot.user} (ID: {bot.user.id})")  # type: ignore
+        logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")  # type: ignore
 
     bot.setup_hook = setup_hook
 
