@@ -4,6 +4,7 @@ from discord.ext import commands
 from src.Interfaces import IEconomyManager, IDatabaseManager, IConfigurationManager
 from src.Model import Player
 from src.DiscordBot.permissions import is_balance_manager, send_permission_error
+import logging
 
 PAGE_SIZE = 10
 
@@ -28,6 +29,7 @@ class EconomyCog(commands.Cog):
     async def balance(
         self, interaction: discord.Interaction, user: discord.Member | None = None
     ):
+        logging.info(f"{interaction.user.name} used /Balance")
         await interaction.response.defer(ephemeral=True)
 
         target = user or interaction.user
@@ -95,9 +97,11 @@ class EconomyCog(commands.Cog):
         user: discord.Member,
         amount: int | None = None,
     ):
+        
         if not await is_balance_manager(
             interaction=interaction, configuration_manager=self.configuration_manager
         ):
+            logging.info(f"{interaction.user.name} tried to use /remove-balance")
             await send_permission_error(interaction=interaction)
             return
 
@@ -124,6 +128,7 @@ class EconomyCog(commands.Cog):
                 ephemeral=True,
             )
             return
+        logging.info(f"{interaction.user.name} used /remove-balance and removed {to_remove} silver from {user.name}")
 
         await self.economy_manager.remove_balance(str(user.id), to_remove)
 
@@ -147,6 +152,8 @@ class EconomyCog(commands.Cog):
         name="leaderboard", description="Show players with the highest current balance."
     )
     async def leaderboard(self, interaction: discord.Interaction):
+        
+        logging.info(f"{interaction.user.name} used /Leaderboard")
         await interaction.response.defer()
         players = await self.economy_manager.get_players_with_highest_balance(
             PAGE_SIZE, offset=0

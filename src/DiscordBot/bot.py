@@ -115,10 +115,7 @@ def create_bot(
         await bot.add_cog(LogsCog(bot, database_manager, configuration_manager))
         await bot.add_cog(HelpCog(bot))
 
-        dev_guild = discord.Object(id=554730364573188106)
-        bot.tree.clear_commands(guild=dev_guild)
-        bot.tree.copy_global_to(guild=dev_guild)
-        await bot.tree.sync(guild=dev_guild)
+        await bot.tree.sync()
         print("Slash commands synced.")
 
         check_expired_sales.start()
