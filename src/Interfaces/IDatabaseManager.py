@@ -110,3 +110,12 @@ class IDatabaseManager(ABC):
     @abstractmethod
     async def get_expired_unended_sales(self) -> list[tuple[SplitSale, Lootsplit]]:
         pass
+
+
+    @abstractmethod
+    async def get_lootsplits_for_player(self, discord_user_id: str) -> list[Lootsplit]:
+        pass
+
+    @abstractmethod
+    async def delete_lootsplit(self, lootsplit_id: int) -> None:
+        pass

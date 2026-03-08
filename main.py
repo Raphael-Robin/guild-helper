@@ -1,3 +1,4 @@
+import logging
 import os
 from dotenv import load_dotenv
 from src.Services import (
@@ -11,9 +12,10 @@ from src.Services import (
 )
 from src.DiscordBot.bot import create_bot
 from argparse import ArgumentParser
-
+from src.utils.logger import handler
 
 def main():
+    
     parser = ArgumentParser(prog="GuildHelper")
     parser.add_argument("-d", "--dev", action="store_true")
     args = parser.parse_args()
@@ -23,6 +25,7 @@ def main():
     else:
         load_dotenv(".env")
         database_name = "guild-helper"
+
 
     albion_api_manager = AlbionApiManager()
     database_manager = DatabaseManager(
@@ -52,8 +55,9 @@ def main():
         lootsplit_manager=lootsplit_manager,
         configuration_manager=configuration_manager,
         albion_api_manager=albion_api_manager,
+        dev=args.dev
     )
-    bot.run(os.environ["DISCORD_TOKEN"])
+    bot.run(os.environ["DISCORD_TOKEN"], log_handler=handler, log_level=logging.CRITICAL)
 
 
 if __name__ == "__main__":

@@ -272,3 +272,27 @@ class DatabaseManager(IDatabaseManager):
                 lootsplit = await self.get_lootsplit_by_id(sale.lootsplit_id)
                 results.append((sale, lootsplit))
         return results
+
+    async def get_lootsplits_for_player(self, discord_user_id: str) -> list[Lootsplit]:
+    # Get all character IDs for this discord user
+        player_docs = await self.players.find(
+            {"discord_user_id": discord_user_id}
+        ).to_list()
+
+        if not player_docs:
+            return []
+
+        character_ids = [p["albion_character_id"] for p in player_docs]
+
+        # Find all lootsplits containing any of those characters
+        cursor = self.lootsplits.find(
+            {"players.albion_character_id": {"$in": character_ids}}
+        ).sort("_id", -1)
+
+        results = []
+        async for doc in cursor:
+            results.append(Lootsplit.model_validate(doc))
+        return results
+    
+    async def delete_lootsplit(self, lootsplit_id: int) -> None:
+        await self.lootsplits.delete_one({"_id": lootsplit_id})

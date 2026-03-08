@@ -5,8 +5,9 @@ from discord import TextChannel, app_commands
 from discord.ext import commands
 from src.Interfaces import ILootsplitManager, IDatabaseManager, IConfigurationManager
 from src.Model import Lootsplit, SplitSale
-from src.DiscordBot.permissions import is_lootsplit_manager, send_permission_error
+from src.DiscordBot.permissions import is_admin, is_lootsplit_manager, send_permission_error
 
+PAGE_SIZE = 10
 
 class LootsplitCog(commands.Cog):
     def __init__(
@@ -78,6 +79,47 @@ class LootsplitCog(commands.Cog):
             )
 
 
+    @app_commands.command(
+        name="my-splits",
+        description="List all loot splits you are part of.",
+    )
+    @app_commands.describe(user="The user to check splits for (admin only, defaults to yourself)")
+    async def my_splits(
+        self,
+        interaction: discord.Interaction,
+        user: discord.Member | None = None,
+    ):
+        await interaction.response.defer(ephemeral=True)
+
+        # Only admins can look up other users
+        if user is not None and user.id != interaction.user.id:
+            if not await is_admin(interaction, self.configuration_manager):
+                await send_permission_error(interaction)
+                return
+
+        target = user or interaction.user
+        lootsplits = await self.database_manager.get_lootsplits_for_player(str(target.id))
+
+        if not lootsplits:
+            await interaction.followup.send(
+                f"❌ No loot splits found for {target.mention}.", ephemeral=True
+            )
+            return
+
+
+        if not isinstance(target, discord.Member):
+            raise Exception()
+        embed = _build_splits_list_embed(lootsplits, target, page=0)
+        view = SplitsListView(
+            lootsplits=lootsplits,
+            target=target,
+        ) if len(lootsplits) > PAGE_SIZE else discord.utils.MISSING
+
+        await interaction.followup.send(
+            embed=embed,
+            view=view if view is not discord.utils.MISSING else discord.utils.MISSING,
+            ephemeral=True,
+        )
 # -----------------------------------------------------------------------------
 # Embed builders
 # -----------------------------------------------------------------------------
@@ -229,6 +271,7 @@ class LootsplitView(discord.ui.View):
         self.reopen_split_button.disabled = not paid_out
         self.pay_players_button.disabled = paid_out or not has_players
         self.sell_split_button.disabled = paid_out or guild_buys
+        self.delete_button.disabled = self.lootsplit.paid_out
 
     async def _load_lootsplit(self, interaction: discord.Interaction) -> bool:
         if self.lootsplit is not None:
@@ -463,6 +506,35 @@ class LootsplitView(discord.ui.View):
         await self._refresh_panel(interaction)
         await interaction.followup.send(
             "✅ Split reopened. Balances have been reversed.", ephemeral=True
+        )
+
+    # -------------------------------------------------------------------------
+    # Delete Split
+    # -------------------------------------------------------------------------
+
+    @discord.ui.button(
+        label="🗑️ Delete",
+        style=discord.ButtonStyle.danger,
+        row=2,
+        custom_id="lootsplit:delete",
+    )
+    async def delete_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        if not await is_admin(interaction, self.configuration_manager):
+            await send_permission_error(interaction)
+            return
+        if not await self._load_lootsplit(interaction):
+            return
+
+        if not (self.lootsplit and self.lootsplit.id) or not interaction.message:
+            raise Exception()
+
+        await interaction.response.defer()
+        await self.database_manager.delete_lootsplit(self.lootsplit.id)
+        await interaction.message.delete()
+        await interaction.followup.send(
+            f"✅ Loot split #{self.lootsplit.id} has been deleted.", ephemeral=True
         )
 
 
@@ -803,3 +875,76 @@ class EditSplitModal(discord.ui.Modal, title="Edit Loot Split"):
 
         await self.lootsplit_view._refresh_panel(interaction)
         await interaction.followup.send("✅ Loot split updated.", ephemeral=True)
+
+def _build_splits_list_embed(
+    lootsplits: list[Lootsplit],
+    target: discord.Member,
+    page: int,
+) -> discord.Embed:
+    embed = discord.Embed(
+        title=f"Loot Splits — {target.display_name}",
+        color=discord.Color.blurple(),
+    )
+    embed.set_thumbnail(url=target.display_avatar.url)
+
+    start = page * PAGE_SIZE
+    page_splits = lootsplits[start:start + PAGE_SIZE]
+
+    for ls in page_splits:
+        config = ls.configuration
+        gross = ls.item_value + ls.silver
+        after_repairs = gross - ls.repair_cost
+        sale_tax = round(after_repairs * (config.lootsplit_sale_tax_percent / 100))
+        guild_tax = round(after_repairs * (config.guild_tax_percent / 100))
+        total_payout = after_repairs - sale_tax - guild_tax
+        per_player = round(total_payout / len(ls.players)) if ls.players else 0
+        status = "✅ Paid" if ls.paid_out else "⏳ Pending"
+
+        # Build a jump link if we have both channel and message IDs
+        if ls.discord_channel_id and ls.discord_message_id and ls.guild_discord_id:
+            link = f"https://discord.com/channels/{ls.guild_discord_id}/{ls.discord_channel_id}/{ls.discord_message_id}"
+            title = f"[Split #{ls.id}]({link})"
+        else:
+            title = f"Split #{ls.id}"
+
+        embed.add_field(
+            name=title,
+            value=(
+                f"Status: **{status}**\n"
+                f"Per Player: **{per_player:,}**\n"
+                f"Players: {len(ls.players)}"
+            ),
+            inline=False,
+        )
+
+    total_pages = (len(lootsplits) + PAGE_SIZE - 1) // PAGE_SIZE
+    embed.set_footer(text=f"Page {page + 1}/{total_pages}  •  {len(lootsplits)} splits total")
+    return embed
+
+
+class SplitsListView(discord.ui.View):
+    def __init__(self, lootsplits: list[Lootsplit], target: discord.Member):
+        super().__init__(timeout=120)
+        self.lootsplits = lootsplits
+        self.target = target
+        self.page = 0
+        self._update_buttons()
+
+    def _update_buttons(self):
+        total_pages = (len(self.lootsplits) + PAGE_SIZE - 1) // PAGE_SIZE
+        self.prev_button.disabled = self.page == 0
+        self.next_button.disabled = self.page >= total_pages - 1
+
+    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page -= 1
+        self._update_buttons()
+        embed = _build_splits_list_embed(self.lootsplits, self.target, self.page)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page += 1
+        self._update_buttons()
+        embed = _build_splits_list_embed(self.lootsplits, self.target, self.page)
+        await interaction.response.edit_message(embed=embed, view=self)

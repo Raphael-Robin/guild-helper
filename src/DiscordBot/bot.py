@@ -24,6 +24,7 @@ from src.Interfaces import (
 )
 
 
+
 def create_bot(
     permission_manager: IPermissionManager,
     economy_manager: IEconomyManager,
@@ -31,6 +32,7 @@ def create_bot(
     lootsplit_manager: ILootsplitManager,
     configuration_manager: IConfigurationManager,
     albion_api_manager: IAlbionApiManager,
+    dev:bool = False
 ) -> commands.Bot:
 
     intents = discord.Intents.default()
@@ -115,7 +117,15 @@ def create_bot(
         await bot.add_cog(LogsCog(bot, database_manager, configuration_manager))
         await bot.add_cog(HelpCog(bot))
 
-        await bot.tree.sync()
+        if dev:
+            dev_guild = discord.Object(id=554730364573188106)
+            bot.tree.clear_commands(guild=dev_guild)
+            bot.tree.copy_global_to(guild=dev_guild)
+            await bot.tree.sync(guild=dev_guild)
+        else:
+            dev_guild = discord.Object(id=1477767599637925970)
+            bot.tree.clear_commands(guild=dev_guild)
+            await bot.tree.sync(guild=dev_guild)
         print("Slash commands synced.")
 
         check_expired_sales.start()
