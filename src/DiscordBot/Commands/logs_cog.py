@@ -62,13 +62,6 @@ class LogsCog(commands.Cog):
     async def logs_character(
         self, interaction: discord.Interaction, character_name: str
     ):
-
-        if not await is_admin(
-            interaction=interaction, configuration_manager=self.configuration_manager
-        ):
-            await send_permission_error(interaction=interaction)
-            return
-
         await interaction.response.defer(ephemeral=True)
 
         logs = await self.database_manager.get_logs_for_character(

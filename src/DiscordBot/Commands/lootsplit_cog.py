@@ -8,6 +8,7 @@ from src.Interfaces import ILootsplitManager, IDatabaseManager, IConfigurationMa
 from src.Model import Lootsplit, SplitSale, Auction, AuctionBid, SplitMode
 
 from src.DiscordBot.permissions import is_admin, is_lootsplit_manager, send_permission_error
+from src.utils.logger import logger
 
 PAGE_SIZE = 10
 
@@ -95,6 +96,7 @@ class LootsplitCog(commands.Cog):
         interaction: discord.Interaction,
         user: discord.Member | None = None,
     ):
+        logger.info(f"{interaction.user.name} used /my-splits")
         await interaction.response.defer(ephemeral=True)
 
         if user is not None and user.id != interaction.user.id:

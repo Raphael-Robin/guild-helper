@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from src.Interfaces import IPermissionManager
+from src.utils.logger import logger
 
 
 class RegistrationCog(commands.Cog):
@@ -14,6 +15,7 @@ class RegistrationCog(commands.Cog):
     )
     @app_commands.describe(character_name="Your Albion Online character name")
     async def register(self, interaction: discord.Interaction, character_name: str):
+        logger.info(f"{interaction.user.name} used /register")
         await interaction.response.defer(ephemeral=True)
 
         already_registered = (
@@ -63,6 +65,7 @@ class RegistrationCog(commands.Cog):
         character_name: str,
         user: discord.Member,
     ):
+        logger.info(f"{interaction.user.name} used /force-register")
         await interaction.response.defer(ephemeral=True)
 
         character_info = await self.permission_manager.get_character_info(
