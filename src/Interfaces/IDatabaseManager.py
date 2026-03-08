@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from src.Model import Player, Log, Lootsplit, Configuration, SplitSale
+from src.Model import Player, Log, Lootsplit, Configuration, SplitSale, Auction
 
 
 class IDatabaseManager(ABC):
@@ -118,4 +118,20 @@ class IDatabaseManager(ABC):
 
     @abstractmethod
     async def delete_lootsplit(self, lootsplit_id: int) -> None:
+        pass
+
+    @abstractmethod
+    async def save_or_update_auction(self, auction: Auction) -> None:
+        pass
+
+    @abstractmethod
+    async def get_auction_by_lootsplit_id(self, lootsplit_id: int) -> Auction | None:
+        pass
+
+    @abstractmethod
+    async def get_auction_by_message_id(self, message_id: str) -> Auction | None:
+        pass
+
+    @abstractmethod
+    async def get_expired_unended_auctions(self) -> list[tuple[Auction, Lootsplit]]:
         pass

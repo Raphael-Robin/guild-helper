@@ -12,6 +12,7 @@ from src.DiscordBot.Commands import (
     EconomyCog,
     RegistrationCog,
     LootsplitCog,
+    AuctionView
 )
 
 from src.Interfaces import (
@@ -62,6 +63,27 @@ def create_bot(
                 lootsplit=lootsplit,
             )
             await sale_view._end_sale_from_task(message)
+        
+        expired_auctions = await database_manager.get_expired_unended_auctions()
+        for auction, lootsplit in expired_auctions:
+            if not lootsplit.discord_channel_id or not auction.discord_message_id:
+                continue
+            channel = bot.get_channel(int(lootsplit.discord_channel_id))
+            if not channel:
+                continue
+            try:
+                if not isinstance(channel, discord.TextChannel):
+                    raise Exception("Unexpected Channel type")
+                message = await channel.fetch_message(int(auction.discord_message_id))
+            except discord.NotFound:
+                continue
+            auction_view = AuctionView(
+                database_manager=database_manager,
+                auction=auction,
+                lootsplit=lootsplit,
+                configuration_manager=configuration_manager,
+            )
+            await auction_view._end_auction_from_task(message)
 
     @check_expired_sales.before_loop
     async def before_check():
@@ -100,6 +122,13 @@ def create_bot(
                 lootsplit=None,
             )
         )
+        bot.add_view(
+            AuctionView(
+            database_manager=database_manager,
+            auction=None,
+            lootsplit=None,
+            configuration_manager=configuration_manager,
+        ))
 
         # Add cogs first so their commands are registered before syncing
         await bot.add_cog(

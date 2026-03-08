@@ -22,4 +22,4 @@ discord_logger = logging.getLogger("discord")
 discord_logger.setLevel(logging.CRITICAL)
 
 # 2. Target the specific gateway logger (sometimes needed for the shard info)
-logging.getLogger("discord.gateway").setLevel(logging.CRITICAL)
+logging.getLogger("discord.gateway").setLevel(logging.WARNING)

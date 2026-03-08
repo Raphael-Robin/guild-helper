@@ -10,6 +10,7 @@ from src.DiscordBot.Commands.lootsplit_cog import (
     LootsplitCog,
     LootsplitView,
     SplitSaleView,
+    AuctionView
 )
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "LeaderboardView",
     "LootsplitView",
     "SplitSaleView",
+    "AuctionView",
 ]

@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from src.DiscordBot.permissions import is_admin, send_permission_error
 from src.Interfaces import IConfigurationManager, IAlbionApiManager
-from src.Model import Configuration, Guild
+from src.Model import Configuration, Guild, SplitMode
 
 
 config_group = app_commands.Group(
@@ -246,35 +246,67 @@ class ConfigurationCog(commands.Cog):
     # /config split-mode
     # -------------------------------------------------------------------------
 
-    @config_group.command(
-        name="split-mode", description="[Admin] Configure how loot splits are handled."
-    )
+    @config_group.command(name="split-mode", description="[Admin] Configure how loot splits are handled.")
     @app_commands.describe(
-        guild_buys_split="If true, the guild buys the split directly. If false, it goes to a player sale.",
+        split_mode="guild_buys: guild buys directly, sale: random buyer sale, auction: sealed bid auction",
     )
+    @app_commands.checks.has_permissions(administrator=True)
     async def config_split_mode(
         self,
         interaction: discord.Interaction,
-        guild_buys_split: bool,
+        split_mode: str,
     ):
-        if not await is_admin(
-            interaction=interaction, configuration_manager=self.configuration_manager
-        ):
-            await send_permission_error(interaction=interaction)
-            return
         await interaction.response.defer(ephemeral=True)
 
+        try:
+            mode = SplitMode(split_mode)
+        except ValueError:
+            await interaction.followup.send(
+                "❌ Invalid mode. Choose from: `guild_buys`, `sale`, `auction`.",
+                ephemeral=True,
+            )
+            return
+
         config = await self._get_config(interaction)
-        config.guild_buys_split = guild_buys_split
+        config.split_mode = mode
         await self._save_config(config)
 
-        mode = (
-            "Guild buys split directly"
-            if guild_buys_split
-            else "Split goes to player sale"
-        )
+        labels = {
+            SplitMode.guild_buys: "Guild buys split directly",
+            SplitMode.sale: "Random buyer sale",
+            SplitMode.auction: "Sealed bid auction",
+        }
         await interaction.followup.send(
-            f"✅ Split mode updated: **{mode}**.", ephemeral=True
+            f"✅ Split mode updated: **{labels[mode]}**.", ephemeral=True
+        )
+
+    # -------------------------------------------------------------------------
+    # Config Auction
+    # -------------------------------------------------------------------------
+
+    @config_group.command(name="auction", description="[Admin] Configure auction settings.")
+    @app_commands.describe(min_bid_percent="Minimum bid as a percentage of total split value (0-100)")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def config_auction(
+        self,
+        interaction: discord.Interaction,
+        min_bid_percent: int,
+    ):
+        await interaction.response.defer(ephemeral=True)
+
+        if not (0 <= min_bid_percent <= 100):
+            await interaction.followup.send(
+                "❌ `min_bid_percent` must be between 0 and 100.", ephemeral=True
+            )
+            return
+
+        config = await self._get_config(interaction)
+        config.auction_min_bid_percent = min_bid_percent
+        await self._save_config(config)
+
+        await interaction.followup.send(
+            f"✅ Auction minimum bid set to **{min_bid_percent}%** of split value.",
+            ephemeral=True,
         )
 
     # -------------------------------------------------------------------------
@@ -353,9 +385,7 @@ def _build_config_embed(
     )
     embed.add_field(
         name="⚙️ Split Mode",
-        value="Guild buys directly"
-        if config.guild_buys_split
-        else "Goes to player sale",
+        value=config.split_mode.value,
         inline=True,
     )
     embed.add_field(

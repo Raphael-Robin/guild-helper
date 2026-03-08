@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from src.Exceptions.player_not_found import PlayerNotFound
 from src.Interfaces import IDatabaseManager, IAlbionApiManager
-from src.Model import Player, Log, Lootsplit, Configuration, SplitSale
+from src.Model import Player, Log, Lootsplit, Configuration, SplitSale, Auction
 from pymongo import AsyncMongoClient
 
 
@@ -142,7 +142,7 @@ class DatabaseManager(IDatabaseManager):
         if lootsplit.id is None:
             lootsplit.id = await self.get_next_sequence_value("lootsplit_id")
 
-        data = lootsplit.model_dump(by_alias=True, exclude_none=True)
+        data = lootsplit.model_dump(by_alias=True, exclude_none=True, mode='json')
 
         await self.lootsplits.update_one(
             filter={"_id": lootsplit.id},
@@ -202,7 +202,7 @@ class DatabaseManager(IDatabaseManager):
     async def save_or_update_configuration(self, config: Configuration) -> None:
         await self.data_base["configurations"].update_one(
             {"guild_discord_server_id": config.guild_discord_server_id},
-            {"$set": config.model_dump()},
+            {"$set": config.model_dump(mode='json')},
             upsert=True,
         )
 
@@ -296,3 +296,32 @@ class DatabaseManager(IDatabaseManager):
     
     async def delete_lootsplit(self, lootsplit_id: int) -> None:
         await self.lootsplits.delete_one({"_id": lootsplit_id})
+
+    async def save_or_update_auction(self, auction: Auction) -> None:
+        if auction.id is None:
+            auction.id = await self.get_next_sequence_value("auction_id")
+        data = auction.model_dump(by_alias=True, exclude_none=True)
+        await self.data_base["auctions"].update_one(
+            {"_id": auction.id},
+            {"$set": data},
+            upsert=True,
+        )
+
+    async def get_auction_by_lootsplit_id(self, lootsplit_id: int) -> Auction | None:
+        doc = await self.data_base["auctions"].find_one({"lootsplit_id": lootsplit_id})
+        return Auction.model_validate(doc) if doc else None
+
+    async def get_auction_by_message_id(self, message_id: str) -> Auction | None:
+        doc = await self.data_base["auctions"].find_one({"discord_message_id": message_id})
+        return Auction.model_validate(doc) if doc else None
+
+    async def get_expired_unended_auctions(self) -> list[tuple[Auction, Lootsplit]]:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        cursor = self.data_base["auctions"].find({"ended": False})
+        results = []
+        async for doc in cursor:
+            auction = Auction.model_validate(doc)
+            if auction.deadline < now:
+                lootsplit = await self.get_lootsplit_by_id(auction.lootsplit_id)
+                results.append((auction, lootsplit))
+        return results
