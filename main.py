@@ -34,7 +34,6 @@ def main():
     permission_manager = PermissionManager(
         database_manager=database_manager, albion_api_manager=albion_api_manager
     )
-    # log_manager = LogManager(database_manager=database_manager)
     log_manager = LogManager(database_manager=database_manager)
     economy_manager = EconomyManager(
         database_manager=database_manager, log_manager=log_manager
