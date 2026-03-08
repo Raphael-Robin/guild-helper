@@ -11,12 +11,12 @@ from src.DiscordBot.permissions import is_admin, is_lootsplit_manager, send_perm
 from src.utils.logger import logger
 
 PAGE_SIZE = 10
+MIN_INCREMENT = 50000
 
 
 # -----------------------------------------------------------------------------
 # Cog
 # -----------------------------------------------------------------------------
-
 
 class LootsplitCog(commands.Cog):
     def __init__(
@@ -339,7 +339,7 @@ def _build_auction_embed(auction: Auction, lootsplit: Lootsplit) -> discord.Embe
     embed = discord.Embed(title=title, color=color)
     embed.add_field(name="Value After Repairs", value=f"**{value_after_repairs:,}**", inline=True)
     embed.add_field(name="Silver", value=f"**{lootsplit.silver:,}**", inline=True)
-    embed.add_field(name="Minimum Bid", value=f"**{auction.min_bid:,}**", inline=True)
+    embed.add_field(name="Minimum Bid", value=f"**{auction.min_bid+MIN_INCREMENT:,}**", inline=True)
     embed.add_field(name="# Bidders", value=str(len(auction.bids)), inline=True)
 
     if not auction.ended:
@@ -1342,29 +1342,19 @@ class PlaceBidModal(discord.ui.Modal, title="Place Your Bid"):
                 "❌ Please enter a valid integer.", ephemeral=True
             )
             return
-
-        if amount < self.auction.min_bid:
+        
+        
+        if amount < self.auction.min_bid + MIN_INCREMENT:
             await interaction.followup.send(
-                f"❌ Your bid must be at least **{self.auction.min_bid:,}** silver.",
+                f"❌ Your bid must be at least **{self.auction.min_bid+MIN_INCREMENT:,}** silver",
                 ephemeral=True,
             )
             return
 
         user_id = str(interaction.user.id)
-        existing = next(
-            (b for b in self.auction.bids if b.discord_user_id == user_id), None
-        )
-
-        if existing:
-            if amount <= existing.amount:
-                await interaction.followup.send(
-                    f"❌ Your new bid must be higher than your current bid of **{existing.amount:,}**.",
-                    ephemeral=True,
-                )
-                return
-            existing.amount = amount
-        else:
-            self.auction.bids.append(AuctionBid(discord_user_id=user_id, amount=amount))
+        
+        self.auction.bids.append(AuctionBid(discord_user_id=user_id, amount=amount))
+        self.auction.min_bid = amount
 
         await self.database_manager.save_or_update_auction(self.auction)
         await self.auction_view._refresh_panel(interaction)

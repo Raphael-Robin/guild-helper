@@ -196,8 +196,7 @@ class ConfigurationCog(commands.Cog):
             return
 
         await interaction.response.defer(ephemeral=True)
-
-        if not any([guild_tax_percent, sale_tax_percent, sale_timer_minutes]):
+        if all(v is None for v in [guild_tax_percent, sale_tax_percent, sale_timer_minutes]):
             await interaction.followup.send(
                 "❌ Please provide at least one value to update.", ephemeral=True
             )
