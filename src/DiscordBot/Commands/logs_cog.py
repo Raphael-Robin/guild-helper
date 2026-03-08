@@ -3,16 +3,23 @@ import io
 import discord
 from discord import app_commands
 from discord.ext import commands
-from src.Interfaces import IDatabaseManager
+from src.Interfaces import IDatabaseManager, IConfigurationManager
 from src.Model import Log
+from src.DiscordBot.permissions import is_admin, send_permission_error
 
 LOG_PAGE_SIZE = 10
 
 
 class LogsCog(commands.Cog):
-    def __init__(self, bot: commands.Bot, database_manager: IDatabaseManager):
+    def __init__(
+        self,
+        bot: commands.Bot,
+        database_manager: IDatabaseManager,
+        configuration_manager: IConfigurationManager,
+    ):
         self.bot = bot
         self.database_manager = database_manager
+        self.configuration_manager = configuration_manager
 
     # -------------------------------------------------------------------------
     # /logs-dump
@@ -21,8 +28,12 @@ class LogsCog(commands.Cog):
     @app_commands.command(
         name="logs-dump", description="[Admin] Export all economy logs as a CSV file."
     )
-    @app_commands.checks.has_permissions(administrator=True)
     async def logs_dump(self, interaction: discord.Interaction):
+        if not await is_admin(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
+            return
         await interaction.response.defer(ephemeral=True)
 
         logs = await self.database_manager.get_all_logs()
@@ -48,10 +59,16 @@ class LogsCog(commands.Cog):
         name="logs-character", description="[Admin] View economy logs for a character."
     )
     @app_commands.describe(character_name="The Albion Online character name")
-    @app_commands.checks.has_permissions(administrator=True)
     async def logs_character(
         self, interaction: discord.Interaction, character_name: str
     ):
+
+        if not await is_admin(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
+            return
+
         await interaction.response.defer(ephemeral=True)
 
         logs = await self.database_manager.get_logs_for_character(

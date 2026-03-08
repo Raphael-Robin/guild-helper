@@ -1,8 +1,9 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from src.Interfaces import IEconomyManager, IDatabaseManager
+from src.Interfaces import IEconomyManager, IDatabaseManager, IConfigurationManager
 from src.Model import Player
+from src.DiscordBot.permissions import is_balance_manager, send_permission_error
 
 PAGE_SIZE = 10
 
@@ -13,10 +14,12 @@ class EconomyCog(commands.Cog):
         bot: commands.Bot,
         economy_manager: IEconomyManager,
         database_manager: IDatabaseManager,
+        configuration_manager: IConfigurationManager,
     ):
         self.bot = bot
         self.economy_manager = economy_manager
         self.database_manager = database_manager
+        self.configuration_manager = configuration_manager
 
     @app_commands.command(name="balance", description="Display the balance of a user.")
     @app_commands.describe(
@@ -86,13 +89,18 @@ class EconomyCog(commands.Cog):
         user="The Discord user to remove balance from",
         amount="Amount to remove (omit to zero out the balance)",
     )
-    @app_commands.checks.has_permissions(administrator=True)
     async def remove_balance(
         self,
         interaction: discord.Interaction,
         user: discord.Member,
         amount: int | None = None,
     ):
+        if not await is_balance_manager(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
+            return
+
         await interaction.response.defer(ephemeral=True)
 
         if amount is not None and amount <= 0:

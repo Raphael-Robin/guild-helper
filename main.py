@@ -13,11 +13,9 @@ from src.DiscordBot.bot import create_bot
 from argparse import ArgumentParser
 
 
-
-
 def main():
     parser = ArgumentParser(prog="GuildHelper")
-    parser.add_argument('-d', '--dev', action="store_true")
+    parser.add_argument("-d", "--dev", action="store_true")
     args = parser.parse_args()
     if args.dev:
         load_dotenv("test.env")
@@ -25,9 +23,13 @@ def main():
     else:
         load_dotenv(".env")
         database_name = "guild-helper"
-   
+
     albion_api_manager = AlbionApiManager()
-    database_manager = DatabaseManager(os.environ["MONGODB_URL"], albion_api_manager=albion_api_manager, database_name=database_name)
+    database_manager = DatabaseManager(
+        os.environ["MONGODB_URL"],
+        albion_api_manager=albion_api_manager,
+        database_name=database_name,
+    )
 
     permission_manager = PermissionManager(
         database_manager=database_manager, albion_api_manager=albion_api_manager

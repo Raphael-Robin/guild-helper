@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from src.DiscordBot.permissions import is_admin, send_permission_error
 from src.Interfaces import IConfigurationManager, IAlbionApiManager
 from src.Model import Configuration, Guild
 
@@ -42,8 +43,14 @@ class ConfigurationCog(commands.Cog):
     @config_group.command(
         name="view", description="[Admin] View the current server configuration."
     )
-    @app_commands.checks.has_permissions(administrator=True)
     async def config_view(self, interaction: discord.Interaction):
+
+        if not await is_admin(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
+            return
+
         await interaction.response.defer(ephemeral=True)
         config = await self._get_config(interaction)
         embed = _build_config_embed(config, interaction.guild)
@@ -58,8 +65,12 @@ class ConfigurationCog(commands.Cog):
         description="[Admin] Link this server to an Albion Online guild.",
     )
     @app_commands.describe(guild_name="The exact Albion Online guild name")
-    @app_commands.checks.has_permissions(administrator=True)
     async def config_set_guild(self, interaction: discord.Interaction, guild_name: str):
+        if not await is_admin(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
+            return
         await interaction.response.defer(ephemeral=True)
 
         guild_data = await self.albion_api_manager.get_guild_by_name(guild_name)
@@ -89,8 +100,9 @@ class ConfigurationCog(commands.Cog):
         member_role="The guild member role",
         ally_role="The ally role",
         lootsplit_buyer_role="The lootsplit buyer role",
+        lootsplit_manager="The lootsplit manager role",
+        balance_manager="The balance manager role",
     )
-    @app_commands.checks.has_permissions(administrator=True)
     async def config_roles(
         self,
         interaction: discord.Interaction,
@@ -98,10 +110,26 @@ class ConfigurationCog(commands.Cog):
         member_role: discord.Role | None = None,
         ally_role: discord.Role | None = None,
         lootsplit_buyer_role: discord.Role | None = None,
+        lootsplit_manager: discord.Role | None = None,
+        balance_manager: discord.Role | None = None,
     ):
+        if not await is_admin(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
+            return
         await interaction.response.defer(ephemeral=True)
 
-        if not any([admin_role, member_role, ally_role, lootsplit_buyer_role]):
+        if not any(
+            [
+                admin_role,
+                member_role,
+                ally_role,
+                lootsplit_buyer_role,
+                lootsplit_manager,
+                balance_manager,
+            ]
+        ):
             await interaction.followup.send(
                 "❌ Please provide at least one role to update.", ephemeral=True
             )
@@ -117,6 +145,10 @@ class ConfigurationCog(commands.Cog):
             config.ally_role_id = str(ally_role.id)
         if lootsplit_buyer_role:
             config.lootsplit_buyer_role_id = str(lootsplit_buyer_role.id)
+        if lootsplit_manager:
+            config.lootsplit_manager_id = str(lootsplit_manager.id)
+        if balance_manager:
+            config.balance_manager_id = str(balance_manager.id)
 
         await self._save_config(config)
 
@@ -129,6 +161,10 @@ class ConfigurationCog(commands.Cog):
             updated.append(f"Ally → {ally_role.mention}")
         if lootsplit_buyer_role:
             updated.append(f"Lootsplit Buyer → {lootsplit_buyer_role.mention}")
+        if lootsplit_manager:
+            updated.append(f"Lootsplit Manager → {lootsplit_manager.mention}")
+        if balance_manager:
+            updated.append(f"Balance Manager → {balance_manager.mention}")
 
         await interaction.followup.send(
             "✅ Roles updated:\n" + "\n".join(updated), ephemeral=True
@@ -146,7 +182,6 @@ class ConfigurationCog(commands.Cog):
         sale_tax_percent="Albion sale tax percentage (0–100)",
         sale_timer_minutes="Minutes players have to sell items",
     )
-    @app_commands.checks.has_permissions(administrator=True)
     async def config_lootsplit(
         self,
         interaction: discord.Interaction,
@@ -154,6 +189,12 @@ class ConfigurationCog(commands.Cog):
         sale_tax_percent: int | None = None,
         sale_timer_minutes: int | None = None,
     ):
+        if not await is_admin(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
+            return
+
         await interaction.response.defer(ephemeral=True)
 
         if not any([guild_tax_percent, sale_tax_percent, sale_timer_minutes]):
@@ -211,12 +252,16 @@ class ConfigurationCog(commands.Cog):
     @app_commands.describe(
         guild_buys_split="If true, the guild buys the split directly. If false, it goes to a player sale.",
     )
-    @app_commands.checks.has_permissions(administrator=True)
     async def config_split_mode(
         self,
         interaction: discord.Interaction,
         guild_buys_split: bool,
     ):
+        if not await is_admin(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
+            return
         await interaction.response.defer(ephemeral=True)
 
         config = await self._get_config(interaction)
@@ -267,7 +312,7 @@ def _build_config_embed(
     else:
         embed.add_field(
             name="🏰 Albion Guild",
-            value="Not set — use `/config-set-guild`",
+            value="Not set. use `/config-set-guild`",
             inline=False,
         )
 
@@ -278,6 +323,16 @@ def _build_config_embed(
 
     embed.add_field(
         name="👑 Admin Role", value=role_str(config.admin_role_id), inline=True
+    )
+    embed.add_field(
+        name="📦 Lootsplit Manager",
+        value=role_str(config.lootsplit_manager_id),
+        inline=True,
+    )
+    embed.add_field(
+        name="💸 Balance Manager",
+        value=role_str(config.balance_manager_id),
+        inline=True,
     )
     embed.add_field(
         name="⚔️ Member Role", value=role_str(config.member_role_id), inline=True
@@ -294,7 +349,7 @@ def _build_config_embed(
         name="🏦 Guild Tax", value=f"{config.guild_tax_percent}%", inline=True
     )
     embed.add_field(
-        name="💸 Sale Tax", value=f"{config.lootsplit_sale_tax_percent}%", inline=True
+        name="🛒 Sale Tax", value=f"{config.lootsplit_sale_tax_percent}%", inline=True
     )
     embed.add_field(
         name="⚙️ Split Mode",

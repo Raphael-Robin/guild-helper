@@ -1,15 +1,19 @@
 import discord
 from discord.ext import commands, tasks
-from src.DiscordBot.Commands.configuration import ConfigurationCog
-from src.DiscordBot.Commands.help import HelpCog
-from src.DiscordBot.Commands.logs import LogsCog
-from src.DiscordBot.Commands.register import ConfirmRegistrationView, RegistrationCog
-from src.DiscordBot.Commands.economy import EconomyCog, LeaderboardView
-from src.DiscordBot.Commands.lootsplits import (
-    LootsplitCog,
-    LootsplitView,
+
+from src.DiscordBot.Commands import (
     SplitSaleView,
+    LootsplitView,
+    LeaderboardView,
+    ConfirmRegistrationView,
+    ConfigurationCog,
+    HelpCog,
+    LogsCog,
+    EconomyCog,
+    RegistrationCog,
+    LootsplitCog,
 )
+
 from src.Interfaces import (
     IPermissionManager,
     IEconomyManager,
@@ -51,6 +55,7 @@ def create_bot(
             sale_view = SplitSaleView(
                 lootsplit_manager=lootsplit_manager,
                 database_manager=database_manager,
+                configuration_manager=configuration_manager,
                 sale=sale,
                 lootsplit=lootsplit,
             )
@@ -64,8 +69,9 @@ def create_bot(
         bot.add_view(
             LootsplitView(
                 lootsplit_manager=lootsplit_manager,
-                lootsplit=None,
+                configuration_manager=configuration_manager,
                 database_manager=database_manager,
+                lootsplit=None,
             )
         )
         bot.add_view(
@@ -87,6 +93,7 @@ def create_bot(
             SplitSaleView(
                 lootsplit_manager=lootsplit_manager,
                 database_manager=database_manager,
+                configuration_manager=configuration_manager,
                 sale=None,
                 lootsplit=None,
             )
@@ -97,9 +104,15 @@ def create_bot(
             ConfigurationCog(bot, configuration_manager, albion_api_manager)
         )
         await bot.add_cog(RegistrationCog(bot, permission_manager=permission_manager))
-        await bot.add_cog(EconomyCog(bot, economy_manager, database_manager))
-        await bot.add_cog(LootsplitCog(bot, lootsplit_manager, database_manager))
-        await bot.add_cog(LogsCog(bot, database_manager))
+        await bot.add_cog(
+            EconomyCog(bot, economy_manager, database_manager, configuration_manager)
+        )
+        await bot.add_cog(
+            LootsplitCog(
+                bot, lootsplit_manager, database_manager, configuration_manager
+            )
+        )
+        await bot.add_cog(LogsCog(bot, database_manager, configuration_manager))
         await bot.add_cog(HelpCog(bot))
 
         dev_guild = discord.Object(id=554730364573188106)

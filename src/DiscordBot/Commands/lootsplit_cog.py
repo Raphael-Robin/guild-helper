@@ -3,8 +3,9 @@ from datetime import datetime, timezone
 import discord
 from discord import TextChannel, app_commands
 from discord.ext import commands
-from src.Interfaces import ILootsplitManager, IDatabaseManager
+from src.Interfaces import ILootsplitManager, IDatabaseManager, IConfigurationManager
 from src.Model import Lootsplit, SplitSale
+from src.DiscordBot.permissions import is_lootsplit_manager, send_permission_error
 
 
 class LootsplitCog(commands.Cog):
@@ -13,10 +14,12 @@ class LootsplitCog(commands.Cog):
         bot: commands.Bot,
         lootsplit_manager: ILootsplitManager,
         database_manager: IDatabaseManager,
+        configuration_manager: IConfigurationManager,
     ):
         self.bot = bot
         self.lootsplit_manager = lootsplit_manager
         self.database_manager = database_manager
+        self.configuration_manager = configuration_manager
 
     @app_commands.command(
         name="lootsplit", description="[Admin] Create a new loot split."
@@ -26,7 +29,6 @@ class LootsplitCog(commands.Cog):
         silver="Silver collected",
         repair_cost="Total repair cost to deduct",
     )
-    @app_commands.checks.has_permissions(administrator=True)
     async def lootsplit(
         self,
         interaction: discord.Interaction,
@@ -34,6 +36,13 @@ class LootsplitCog(commands.Cog):
         silver: int,
         repair_cost: int,
     ):
+
+        if not await is_lootsplit_manager(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
+            return
+
         await interaction.response.defer()
 
         if not interaction.guild:
@@ -51,6 +60,7 @@ class LootsplitCog(commands.Cog):
             lootsplit_manager=self.lootsplit_manager,
             lootsplit=lootsplit,
             database_manager=self.database_manager,
+            configuration_manager=self.configuration_manager,
         )
         message = await interaction.followup.send(embed=embed, view=view, wait=True)
         lootsplit.discord_message_id = str(message.id)
@@ -188,32 +198,6 @@ def _build_sale_embed(sale: SplitSale, lootsplit: Lootsplit) -> discord.Embed:
 
 
 # -----------------------------------------------------------------------------
-# Helpers
-# -----------------------------------------------------------------------------
-
-
-def _chunk_text(text: str, limit: int) -> list[str]:
-    chunks, current = [], []
-    current_len = 0
-    for line in text.split("\n"):
-        if current_len + len(line) + 1 > limit:
-            chunks.append("\n".join(current))
-            current, current_len = [], 0
-        current.append(line)
-        current_len += len(line) + 1
-    if current:
-        chunks.append("\n".join(current))
-    return chunks
-
-
-def _is_admin(interaction: discord.Interaction) -> bool:
-    return (
-        isinstance(interaction.user, discord.Member)
-        and interaction.user.guild_permissions.administrator
-    )
-
-
-# -----------------------------------------------------------------------------
 # LootsplitView
 # -----------------------------------------------------------------------------
 
@@ -224,10 +208,12 @@ class LootsplitView(discord.ui.View):
         lootsplit_manager: ILootsplitManager,
         lootsplit: Lootsplit | None,
         database_manager: IDatabaseManager,
+        configuration_manager: IConfigurationManager,
     ):
         super().__init__(timeout=None)
         self.lootsplit_manager = lootsplit_manager
         self.database_manager = database_manager
+        self.configuration_manager = configuration_manager
         self.lootsplit = lootsplit
         self._update_buttons()
 
@@ -286,8 +272,11 @@ class LootsplitView(discord.ui.View):
     async def add_players_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        if not _is_admin(interaction):
-            await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+
+        if not await is_lootsplit_manager(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
             return
         if not await self._load_lootsplit(interaction):
             return
@@ -314,8 +303,11 @@ class LootsplitView(discord.ui.View):
     async def edit_split_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        if not _is_admin(interaction):
-            await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+
+        if not await is_lootsplit_manager(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
             return
         if not await self._load_lootsplit(interaction):
             return
@@ -343,8 +335,11 @@ class LootsplitView(discord.ui.View):
     async def sell_split_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        if not _is_admin(interaction):
-            await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+
+        if not await is_lootsplit_manager(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
             return
         if not await self._load_lootsplit(interaction):
             return
@@ -365,6 +360,7 @@ class LootsplitView(discord.ui.View):
         sale_view = SplitSaleView(
             lootsplit_manager=self.lootsplit_manager,
             database_manager=self.database_manager,
+            configuration_manager=self.configuration_manager,
             sale=sale,
             lootsplit=self.lootsplit,
         )
@@ -402,8 +398,11 @@ class LootsplitView(discord.ui.View):
     async def pay_players_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        if not _is_admin(interaction):
-            await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+
+        if not await is_lootsplit_manager(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
             return
         if not await self._load_lootsplit(interaction):
             return
@@ -442,8 +441,11 @@ class LootsplitView(discord.ui.View):
     async def reopen_split_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        if not _is_admin(interaction):
-            await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+
+        if not await is_lootsplit_manager(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
             return
         if not await self._load_lootsplit(interaction):
             return
@@ -474,12 +476,14 @@ class SplitSaleView(discord.ui.View):
         self,
         lootsplit_manager: ILootsplitManager,
         database_manager: IDatabaseManager,
+        configuration_manager: IConfigurationManager,
         sale: SplitSale | None,
         lootsplit: Lootsplit | None,
     ):
         super().__init__(timeout=None)
         self.lootsplit_manager = lootsplit_manager
         self.database_manager = database_manager
+        self.configuration_manager = configuration_manager
         self.sale = sale
         self.lootsplit = lootsplit
         self._update_buttons()
@@ -650,8 +654,11 @@ class SplitSaleView(discord.ui.View):
     async def force_end_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        if not _is_admin(interaction):
-            await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+
+        if not await is_lootsplit_manager(
+            interaction=interaction, configuration_manager=self.configuration_manager
+        ):
+            await send_permission_error(interaction=interaction)
             return
         if not await self._load_state(interaction):
             return

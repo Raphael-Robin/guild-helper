@@ -8,7 +8,10 @@ from pymongo import AsyncMongoClient
 
 class DatabaseManager(IDatabaseManager):
     def __init__(
-        self, database_url: str, albion_api_manager: IAlbionApiManager, database_name: str
+        self,
+        database_url: str,
+        albion_api_manager: IAlbionApiManager,
+        database_name: str,
     ) -> None:
         self.client = AsyncMongoClient(host=database_url)
         self.data_base = self.client[database_name]
