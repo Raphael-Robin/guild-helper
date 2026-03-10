@@ -79,6 +79,7 @@ def create_bot(
             except discord.NotFound:
                 continue
             auction_view = AuctionView(
+                lootsplit_manager=lootsplit_manager,
                 database_manager=database_manager,
                 auction=auction,
                 lootsplit=lootsplit,
@@ -125,10 +126,11 @@ def create_bot(
         )
         bot.add_view(
             AuctionView(
-            database_manager=database_manager,
-            auction=None,
-            lootsplit=None,
-            configuration_manager=configuration_manager,
+                lootsplit_manager=lootsplit_manager,
+                database_manager=database_manager,
+                auction=None,
+                lootsplit=None,
+                configuration_manager=configuration_manager,
         ))
 
         # Add cogs first so their commands are registered before syncing
